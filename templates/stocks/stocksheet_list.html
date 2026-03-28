@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Stock Sheets{% endblock %}
+{% block content %}
+<section class="section-head">
+    <div>
+        <p class="eyebrow">Library</p>
+        <h1>All account summaries</h1>
+    </div>
+    <a href="{% url 'stocks:sheet_create' %}" class="primary-button">Create Summary</a>
+</section>
+
+<section class="card table-card">
+    <table>
+        <thead>
+            <tr>
+                <th>Reference</th>
+                <th>Title</th>
+                <th>Date</th>
+                <th>Total Sale</th>
+                <th>Total Purchase</th>
+                <th>Balance</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sheet in sheets %}
+            <tr>
+                <td><a href="{{ sheet.get_absolute_url }}">{{ sheet.reference_number }}</a></td>
+                <td>{{ sheet.title }}</td>
+                <td>{{ sheet.sheet_date }}</td>
+                <td>{{ sheet.totals.total_sale }}</td>
+                <td>{{ sheet.totals.total_purchase }}</td>
+                <td>{{ sheet.totals.balance }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6">No account summaries found yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

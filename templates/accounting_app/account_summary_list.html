@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Account Summaries{% endblock %}
+{% block content %}
+<section class="section-head">
+    <div>
+        <p class="eyebrow">Accounting</p>
+        <h1>All account summaries</h1>
+    </div>
+    <a href="{% url 'accounting_app:summary_create' %}" class="primary-button">Create Summary</a>
+</section>
+
+<section class="card form-grid">
+    <h2>Filter Summaries</h2>
+    <form method="get" class="toolbar-form">
+        <div>
+            <label for="filter_branch">Branch</label>
+            <select id="filter_branch" name="branch">
+                <option value="">All Branches</option>
+                {% for branch in branches %}
+                <option value="{{ branch.id }}" {% if branch.id == selected_branch_id %}selected{% endif %}>{{ branch.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="filter_sheet_date">Date</label>
+            <input id="filter_sheet_date" name="sheet_date" type="date" value="{{ selected_sheet_date }}">
+        </div>
+        <div class="toolbar-submit">
+            <button type="submit" class="primary-button">Apply Filters</button>
+        </div>
+    </form>
+</section>
+
+<section class="card table-card">
+    <table>
+        <thead>
+            <tr>
+                <th>Reference</th>
+                <th>Title</th>
+                <th>Date</th>
+                <th>Branch</th>
+                <th>Total Sale</th>
+                <th>Total Purchase</th>
+                <th>Balance</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sheet in sheets %}
+            <tr>
+                <td><a href="{{ sheet.get_absolute_url }}">{{ sheet.reference_number }}</a></td>
+                <td>{{ sheet.title }}</td>
+                <td>{{ sheet.sheet_date }}</td>
+                <td>{{ sheet.branch.name|default:"Unassigned" }}</td>
+                <td>{{ sheet.totals.total_sale }}</td>
+                <td>{{ sheet.totals.total_purchase }}</td>
+                <td>{{ sheet.totals.balance }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7">No account summaries found yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

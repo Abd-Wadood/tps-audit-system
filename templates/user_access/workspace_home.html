@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Workspace{% endblock %}
+{% block content %}
+<section class="workspace-dashboard">
+    <section class="hero workspace-hero">
+        <div>
+            <p class="eyebrow">Workspace</p>
+            <h1>Choose the area you want to work in</h1>
+            <p class="lead">This workspace is separated into stock control, accounting, and reporting so each user can stay focused.</p>
+        </div>
+    </section>
+
+    {% if request.user.is_superuser %}
+    <section class="workspace-section">
+        <div class="section-head">
+            <div>
+                <p class="eyebrow">Owner Controls</p>
+                <h2>Administration</h2>
+            </div>
+        </div>
+        <div class="workspace-grid">
+            <a class="workspace-panel" href="{% url 'user_access:user_management' %}">
+                <span class="workspace-kicker">Admin</span>
+                <strong>User Access Management</strong>
+                <p>Create user logins, update roles, and protect owner-level access.</p>
+            </a>
+            <a class="workspace-panel" href="{% url 'user_access:balance_overview' %}">
+                <span class="workspace-kicker">Admin</span>
+                <strong>Balance Overview</strong>
+                <p>Review totals, ranges, and accounting summaries for all branches.</p>
+            </a>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if role_can_stock %}
+    <section class="workspace-section">
+        <div class="section-head">
+            <div>
+                <p class="eyebrow">Operations</p>
+                <h2>Stock Control</h2>
+            </div>
+        </div>
+        <div class="workspace-grid">
+            <a class="workspace-panel workspace-panel-stock" href="{% url 'stock_control:stock_sheet' %}">
+                <span class="workspace-kicker">Stock</span>
+                <strong>Daily Stock Sheet</strong>
+                <p>Update opening, received, sale, exchange, and remaining stock values.</p>
+            </a>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if role_can_accounting or request.user.is_superuser or role_can_reports %}
+    <section class="workspace-section">
+        <div class="section-head">
+            <div>
+                <p class="eyebrow">Accounting</p>
+                <h2>Summary Workflows</h2>
+            </div>
+        </div>
+        <div class="workspace-grid">
+            {% if role_can_accounting %}
+            <a class="workspace-panel workspace-panel-accounting" href="{% url 'accounting_app:summary_create' %}">
+                <span class="workspace-kicker">Accounting</span>
+                <strong>New Summary</strong>
+                <p>Create or update the day’s account summary with totals and balance.</p>
+            </a>
+            <a class="workspace-panel workspace-panel-accounting" href="{% url 'accounting_app:stock_review' %}">
+                <span class="workspace-kicker">Accounting</span>
+                <strong>Stock Review</strong>
+                <p>Finalize stock sheet values and prepare the accounting PDF output.</p>
+            </a>
+            {% endif %}
+            {% if request.user.is_superuser or role_can_reports %}
+            <a class="workspace-panel workspace-panel-report" href="{% url 'accounting_app:summary_list' %}">
+                <span class="workspace-kicker">Accounting</span>
+                <strong>Account Summaries</strong>
+                <p>Browse saved account summaries by branch and date.</p>
+            </a>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if role_can_reports %}
+    <section class="workspace-section">
+        <div class="section-head">
+            <div>
+                <p class="eyebrow">Reports</p>
+                <h2>Reporting Area</h2>
+            </div>
+        </div>
+        <div class="workspace-grid">
+            <a class="workspace-panel workspace-panel-report" href="{% url 'reports_center:dashboard' %}">
+                <span class="workspace-kicker">Reports</span>
+                <strong>Generated Reports</strong>
+                <p>Review stock sheets, account summaries, and export report PDFs.</p>
+            </a>
+        </div>
+    </section>
+    {% endif %}
+</section>
+
+{% if not has_any_workspace_access %}
+<section class="card">
+    <p class="eyebrow">No Access Assigned</p>
+    <h2>Ask the owner or admin to assign your role</h2>
+    <p class="lead">Your login works, but no workspace section has been assigned to this user yet. Ask the owner/admin to open the workspace user management screen and assign one of these roles: `stock_updater`, `accounting_user`, or `report_admin`.</p>
+</section>
+{% endif %}
+{% endblock %}

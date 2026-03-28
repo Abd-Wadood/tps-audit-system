@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<section class="hero">
+    <div>
+        <p class="eyebrow">Overview</p>
+        <h1>Run daily stock control and audit summaries in one place</h1>
+        <p class="lead">Use the daily stock sheet for branch inventory control and keep the previous audit form available for expense, counter, and balance tracking.</p>
+    </div>
+    <div class="hero-actions">
+        <a href="{% url 'stocks:stock_sheet' %}" class="ghost-button">Open Stock Sheet</a>
+        <a href="{% url 'stocks:sheet_create' %}" class="primary-button">New Summary</a>
+    </div>
+</section>
+
+<section class="stats-grid">
+    <article class="stat-card">
+        <span>Total Summaries</span>
+        <strong>{{ total_sheets }}</strong>
+    </article>
+    <article class="stat-card">
+        <span>Latest Total Sale</span>
+        <strong>{{ latest_total_sale }}</strong>
+    </article>
+    <article class="stat-card">
+        <span>Latest Balance</span>
+        <strong>{{ latest_balance }}</strong>
+    </article>
+</section>
+
+<section class="card">
+    <div class="section-head">
+        <div>
+            <p class="eyebrow">Recent work</p>
+            <h2>Latest account summaries</h2>
+        </div>
+        <a href="{% url 'stocks:sheet_list' %}" class="ghost-button">View all</a>
+    </div>
+    <div class="list-grid">
+        {% for sheet in recent_sheets %}
+        <a href="{{ sheet.get_absolute_url }}" class="list-row">
+            <div>
+                <strong>{{ sheet.title }}</strong>
+                <small>{{ sheet.reference_number }} | {{ sheet.sheet_date }}</small>
+            </div>
+            <div>
+                <strong>{{ sheet.totals.balance }}</strong>
+                <small>Balance</small>
+            </div>
+        </a>
+        {% empty %}
+        <p>No account summaries yet. Start by creating your first one.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

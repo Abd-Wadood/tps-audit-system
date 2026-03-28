@@ -1,0 +1,392 @@
+{% extends "base.html" %}
+{% block title %}Account Summary{% endblock %}
+{% block content %}
+<style>
+    #account-summary-form {
+        justify-items: start;
+    }
+
+    #account-summary-form > .card.form-grid,
+    #account-summary-form .summary-section,
+    #account-summary-form > .card:last-child {
+        width: min(100%, 980px);
+    }
+
+    #account-summary-form > .card.form-grid {
+        padding: 1.25rem 1.4rem;
+    }
+
+    #account-summary-form .summary-section {
+        padding: 1.1rem 1.2rem;
+    }
+
+    #account-summary-form .summary-section .section-head {
+        margin-bottom: 0.75rem;
+        align-items: center;
+    }
+
+    #account-summary-form .summary-section h2 {
+        margin: 0;
+    }
+
+    #account-summary-form .input-list,
+    #account-summary-form .custom-rows {
+        display: grid;
+        gap: 0.35rem;
+    }
+
+    #account-summary-form .line-row,
+    #account-summary-form .custom-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 110px;
+        gap: 0.55rem;
+        align-items: center;
+        width: 100%;
+        margin-bottom: 0;
+    }
+
+    #account-summary-form .line-row > span {
+        min-width: 0;
+        line-height: 1.2;
+    }
+
+    #account-summary-form .line-row > input {
+        width: 110px;
+        min-width: 110px;
+        max-width: 110px;
+        padding: 0.32rem 0.55rem;
+        justify-self: end;
+    }
+
+    #account-summary-form .custom-row {
+        grid-template-columns: minmax(0, 1fr) 110px auto;
+    }
+
+    #account-summary-form .custom-row > input:first-child {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+    }
+
+    #account-summary-form .custom-row > input:last-of-type {
+        width: 110px;
+        min-width: 110px;
+        max-width: 110px;
+        padding: 0.32rem 0.55rem;
+    }
+
+    @media (max-width: 1024px) {
+        #account-summary-form > .card.form-grid,
+        #account-summary-form .summary-section,
+        #account-summary-form > .card:last-child {
+            width: 100%;
+        }
+
+        #account-summary-form .line-row,
+        #account-summary-form .custom-row {
+            grid-template-columns: 1fr;
+        }
+
+        #account-summary-form .line-row > input,
+        #account-summary-form .custom-row > input {
+            width: 100%;
+            min-width: 0;
+            max-width: none;
+            justify-self: stretch;
+        }
+    }
+</style>
+<section class="section-head">
+    <div>
+        <p class="eyebrow">Accounting</p>
+        <h1>ACCOUNT SUMMARY</h1>
+        <p class="lead">Capture purchases, counter activity, and final balance in one structured workflow with live calculations.</p>
+    </div>
+</section>
+
+<section class="card form-grid">
+    <h2>Load Existing Summary</h2>
+    <form method="get" class="toolbar-form">
+        <div>
+            <label for="load_branch">Branch</label>
+            <select id="load_branch" name="branch">
+                {% for branch in branches %}
+                <option value="{{ branch.id }}" {% if branch.id == selected_branch_id %}selected{% endif %}>{{ branch.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="load_sheet_date">Date</label>
+            <input id="load_sheet_date" name="sheet_date" type="date" value="{{ default_date }}">
+        </div>
+        <div class="toolbar-submit">
+            <button type="submit" class="primary-button">Load Summary</button>
+        </div>
+    </form>
+    {% if loaded_summary %}
+    <p class="lead">Loaded existing summary for {{ loaded_branch_name }} on {{ loaded_date }}.</p>
+    {% else %}
+    <p class="lead">No saved summary exists yet for {{ loaded_branch_name }} on {{ loaded_date }}. Saving this form will create it.</p>
+    {% endif %}
+</section>
+
+<form method="post" class="sheet-layout" id="account-summary-form">
+    {% csrf_token %}
+    <section class="card form-grid">
+        <h2>Sheet Information</h2>
+        <div>
+            <label for="title">Title</label>
+            <input id="title" name="title" value="{{ title_value }}">
+        </div>
+        <div>
+            <label for="reference_number">Reference Number</label>
+            <input id="reference_number" name="reference_number" placeholder="ACC-001" value="{{ reference_number_value }}">
+        </div>
+        <div>
+            <label for="sheet_date">Date</label>
+            <input id="sheet_date" name="sheet_date" type="date" value="{{ default_date }}">
+        </div>
+        <div>
+            <label for="branch">Branch</label>
+            <select id="branch" name="branch">
+                {% for branch in branches %}
+                <option value="{{ branch.id }}" {% if branch.id == selected_branch_id %}selected{% endif %}>{{ branch.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="system_sale">System Sale</label>
+            <input id="system_sale" name="system_sale" type="number" step="0.01" min="0" value="{{ system_sale_value }}" data-summary-role="system-sale">
+        </div>
+    </section>
+
+    <div class="summary-shell">
+        <section class="sheet-sections">
+            <section class="card summary-section" data-section="local" data-total-target="total_local_purchase">
+                <div class="section-head">
+                    <div>
+                        <p class="eyebrow">Section 1</p>
+                        <h2>Local Purchases</h2>
+                    </div>
+                    <button type="button" class="ghost-button add-row-button" data-add-row="local">+ Add Custom Row</button>
+                </div>
+                <div class="input-list">
+                    {% for field in sections.local.fields %}
+                    <label class="line-row">
+                        <span>{{ field.label }}</span>
+                        <input type="number" step="0.01" min="0" name="local_{{ field.key }}" value="{{ field.value }}" data-section-input="local">
+                    </label>
+                    {% endfor %}
+                </div>
+                <div id="local-custom-rows" class="custom-rows"></div>
+                <input type="hidden" id="local_custom_rows" name="local_custom_rows" value='{{ sections.local.custom_rows_json }}'>
+                <label class="line-row total-row">
+                    <span>Total Local Purchase</span>
+                    <input type="number" readonly value="0.00" data-total-display="total_local_purchase">
+                </label>
+            </section>
+
+            <section class="card summary-section" data-section="market" data-total-target="total_market_purchase">
+                <div class="section-head">
+                    <div>
+                        <p class="eyebrow">Section 2</p>
+                        <h2>Market Purchase</h2>
+                    </div>
+                    <button type="button" class="ghost-button add-row-button" data-add-row="market">+ Add Custom Row</button>
+                </div>
+                <div class="input-list">
+                    {% for field in sections.market.fields %}
+                    <label class="line-row">
+                        <span>{{ field.label }}</span>
+                        <input type="number" step="0.01" min="0" name="market_{{ field.key }}" value="{{ field.value }}" data-section-input="market">
+                    </label>
+                    {% endfor %}
+                </div>
+                <div id="market-custom-rows" class="custom-rows"></div>
+                <input type="hidden" id="market_custom_rows" name="market_custom_rows" value='{{ sections.market.custom_rows_json }}'>
+                <label class="line-row total-row">
+                    <span>Total Market Purchase</span>
+                    <input type="number" readonly value="0.00" data-total-display="total_market_purchase">
+                </label>
+            </section>
+
+            <section class="card summary-section" data-section="counter" data-total-target="counter_sale_total">
+                <div class="section-head">
+                    <div>
+                        <p class="eyebrow">Section 3</p>
+                        <h2>Counter Summary</h2>
+                    </div>
+                </div>
+                <div class="input-list">
+                    {% for field in sections.counter.fields %}
+                    <label class="line-row">
+                        <span>{{ field.label }}</span>
+                        <input type="number" step="0.01" min="0" name="counter_{{ field.key }}" value="{{ field.value }}" data-section-input="counter">
+                    </label>
+                    {% endfor %}
+                </div>
+                <label class="line-row total-row">
+                    <span>Total Sale</span>
+                    <input type="number" readonly value="0.00" data-total-display="counter_sale_total">
+                </label>
+            </section>
+
+            <section class="card summary-section" data-section="total" data-total-target="adjustment_total">
+                <div class="section-head">
+                    <div>
+                        <p class="eyebrow">Section 4</p>
+                        <h2>Total Summary Purchases</h2>
+                    </div>
+                    <button type="button" class="ghost-button add-row-button" data-add-row="total">+ Add Custom Row</button>
+                </div>
+                <div class="input-list">
+                    {% for field in sections.total.fields %}
+                    <label class="line-row">
+                        <span>{{ field.label }}</span>
+                        <input type="number" step="0.01" min="0" name="total_{{ field.key }}" value="{{ field.value }}" data-section-input="total">
+                    </label>
+                    {% endfor %}
+                </div>
+                <div id="total-custom-rows" class="custom-rows"></div>
+                <input type="hidden" id="total_custom_rows" name="total_custom_rows" value='{{ sections.total.custom_rows_json }}'>
+                <label class="line-row total-row">
+                    <span>Total Summary Purchase</span>
+                    <input type="number" readonly value="0.00" data-total-display="adjustment_total">
+                </label>
+            </section>
+        </section>
+    </div>
+
+    <section class="card">
+        <div class="sheet-actions">
+            <button type="submit" class="primary-button wide-button">Save Account Summary</button>
+        </div>
+    </section>
+</form>
+
+<script>
+const sectionCustomRows = {
+    local: JSON.parse(document.getElementById("local_custom_rows").value || "[]"),
+    market: JSON.parse(document.getElementById("market_custom_rows").value || "[]"),
+    total: JSON.parse(document.getElementById("total_custom_rows").value || "[]"),
+};
+
+function toNumber(value) {
+    const parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatNumber(value) {
+    return value.toFixed(2);
+}
+
+function getSectionTotal(sectionName) {
+    let total = 0;
+    document.querySelectorAll(`[data-section-input="${sectionName}"]`).forEach((input) => {
+        total += toNumber(input.value);
+    });
+    if (sectionCustomRows[sectionName]) {
+        sectionCustomRows[sectionName].forEach((row) => {
+            total += toNumber(row.value);
+        });
+    }
+    return total;
+}
+
+function syncCustomRows(sectionName) {
+    document.getElementById(`${sectionName}_custom_rows`).value = JSON.stringify(sectionCustomRows[sectionName]);
+}
+
+function renderCustomRows(sectionName) {
+    const container = document.getElementById(`${sectionName}-custom-rows`);
+    container.innerHTML = "";
+    sectionCustomRows[sectionName].forEach((row, index) => {
+        const rowEl = document.createElement("div");
+        rowEl.className = "custom-row";
+        rowEl.innerHTML = `
+            <input type="text" placeholder="Custom label" value="${row.label}">
+            <input type="number" step="0.01" min="0" value="${row.value}">
+            <button type="button" class="ghost-button">Remove</button>
+        `;
+        const [labelInput, valueInput, removeButton] = rowEl.querySelectorAll("input, button");
+        labelInput.addEventListener("input", (event) => {
+            sectionCustomRows[sectionName][index].label = event.target.value;
+            syncCustomRows(sectionName);
+        });
+        valueInput.addEventListener("input", (event) => {
+            sectionCustomRows[sectionName][index].value = event.target.value;
+            syncCustomRows(sectionName);
+            updateAllTotals();
+        });
+        removeButton.addEventListener("click", () => {
+            sectionCustomRows[sectionName].splice(index, 1);
+            syncCustomRows(sectionName);
+            renderCustomRows(sectionName);
+            updateAllTotals();
+        });
+        container.appendChild(rowEl);
+    });
+    syncCustomRows(sectionName);
+}
+
+function updateAllTotals() {
+    const systemSale = toNumber(document.querySelector('[data-summary-role="system-sale"]').value);
+    const totalLocalPurchase = getSectionTotal("local");
+    const totalMarketPurchase = getSectionTotal("market");
+    const counterSale = toNumber(document.querySelector('[name="counter_counter_sale"]').value);
+    const directSale = toNumber(document.querySelector('[name="counter_direct_sale"]').value);
+
+    const loan = toNumber(document.querySelector('[name="total_loan"]').value);
+    const extraFee = toNumber(document.querySelector('[name="total_extra_fee"]').value);
+    const totalWage = toNumber(document.querySelector('[name="total_total_wage"]').value);
+    const foodPanda = toNumber(document.querySelector('[name="total_food_panda"]').value);
+    const discount = toNumber(document.querySelector('[name="total_discount"]').value);
+    const counterPurchase = toNumber(document.querySelector('[name="total_counter_purchase"]').value);
+    const customTotalAdjustments = sectionCustomRows.total.reduce((sum, row) => sum + toNumber(row.value), 0);
+
+    const adjustmentTotal = loan + extraFee + totalWage + counterPurchase + customTotalAdjustments + discount;
+    const totalSale = counterSale + directSale;
+    const totalPurchase = totalLocalPurchase + totalMarketPurchase + adjustmentTotal;
+    const difference = counterSale - systemSale;
+    const balance = totalSale - totalPurchase;
+
+    const mappedTotals = {
+        system_sale: systemSale,
+        total_local_purchase: totalLocalPurchase,
+        total_market_purchase: totalMarketPurchase,
+        counter_sale_total: counterSale,
+        counter_sale: counterSale,
+        total_sale: totalSale,
+        total_purchase: totalPurchase,
+        difference: difference,
+        balance: balance,
+        adjustment_total: adjustmentTotal,
+    };
+
+    Object.entries(mappedTotals).forEach(([key, value]) => {
+        const display = document.querySelector(`[data-total-display="${key}"]`);
+        if (display) {
+            display.value = formatNumber(value);
+        }
+    });
+}
+
+document.querySelectorAll("[data-add-row]").forEach((button) => {
+    button.addEventListener("click", () => {
+        const sectionName = button.dataset.addRow;
+        sectionCustomRows[sectionName].push({ label: "", value: "0" });
+        renderCustomRows(sectionName);
+        updateAllTotals();
+    });
+});
+
+document.querySelectorAll('[data-section-input], [data-summary-role="system-sale"]').forEach((input) => {
+    input.addEventListener("input", updateAllTotals);
+});
+
+renderCustomRows("local");
+renderCustomRows("market");
+renderCustomRows("total");
+updateAllTotals();
+</script>
+{% endblock %}

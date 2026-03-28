@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}User Management{% endblock %}
+{% block content %}
+<section class="hero">
+    <div>
+        <p class="eyebrow">Owner Controls</p>
+        <h1>Create user logins and assign workspace roles</h1>
+        <p class="lead">This screen replaces the need to visit Django admin for everyday access management.</p>
+    </div>
+</section>
+
+<section class="summary-shell">
+    <section class="card">
+        <div class="section-head">
+            <div>
+                <p class="eyebrow">Create Login</p>
+                <h2>New User</h2>
+            </div>
+        </div>
+        <form method="post" class="form-grid">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_user">
+            {% for field in create_form %}
+            <div>
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {{ field.errors }}
+            </div>
+            {% endfor %}
+            <button type="submit" class="primary-button">Create User Login</button>
+        </form>
+    </section>
+
+    <aside class="card account-summary-card">
+        <p class="eyebrow">Role Guide</p>
+        <h2>Access Types</h2>
+        <div class="input-list">
+            <div class="line-row readonly-row"><span>`stock_updater`</span><strong>Stock Sheet Only</strong></div>
+            <div class="line-row readonly-row"><span>`accounting_user`</span><strong>New Summary Only</strong></div>
+            <div class="line-row readonly-row"><span>`report_admin`</span><strong>Reports Only</strong></div>
+            <div class="line-row readonly-row"><span>Owner/Admin</span><strong>All Sections</strong></div>
+        </div>
+    </aside>
+</section>
+
+
+<section class="card">
+    <div class="section-head">
+        <div>
+            <p class="eyebrow">Manage Access</p>
+            <h2>Existing Users</h2>
+        </div>
+    </div>
+    <div class="table-card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Current Access</th>
+                    <th>Update Role</th>
+                    <th>Delete User</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in user_role_forms %}
+                <tr>
+                    <td>{{ item.managed_user.username }}</td>
+                    <td>{{ item.managed_user.get_full_name|default:"-" }}</td>
+                    <td>{{ item.managed_user.email|default:"-" }}</td>
+                    <td>
+                        {% if item.managed_user.is_superuser %}
+                        Owner/Admin
+                        {% else %}
+                        {{ item.managed_user.groups.first.name|default:"No role assigned" }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.managed_user.is_superuser %}
+                        <span class="calc-pill">System Managed</span>
+                        {% else %}
+                        <form method="post" class="role-form-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="update_role">
+                            {{ item.form.user_id }}
+                            {{ item.form.role }}
+                            <button type="submit" class="ghost-button">Save</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if item.managed_user.is_superuser %}
+                        <span class="calc-pill">Protected</span>
+                        {% else %}
+                        <form method="post" class="role-form-inline" onsubmit="return confirm('Delete user {{ item.managed_user.username }}?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete_user">
+                            <input type="hidden" name="user_id" value="{{ item.managed_user.id }}">
+                            <button type="submit" class="ghost-button">Delete</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

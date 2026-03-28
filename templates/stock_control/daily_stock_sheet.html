@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Stock Control System{% endblock %}
+
+{% block content %}
+<section class="hero hero-compact">
+    <div>
+        <p class="eyebrow">{{ page_eyebrow }}</p>
+        <h1>{{ page_title }}</h1>
+        <p class="lead">{{ page_description }}</p>
+    </div>
+    {% if show_pdf_button %}
+    <div class="hero-actions">
+        <a class="ghost-button" href="{% url 'stock_control:stock_sheet_pdf' %}?branch={{ branch.id }}&date={{ selected_date|date:'Y-m-d' }}">Download PDF</a>
+    </div>
+    {% endif %}
+</section>
+
+<section class="stock-toolbar card">
+    <form method="get" class="toolbar-form">
+        <div>
+            <label for="branch">Branch</label>
+            <select name="branch" id="branch">
+                {% for branch_option in branches %}
+                <option value="{{ branch_option.id }}" {% if branch_option.id == branch.id %}selected{% endif %}>{{ branch_option.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="date">Date</label>
+            <input type="date" id="date" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+        </div>
+        <div class="toolbar-submit">
+            <button type="submit" class="primary-button">Load Sheet</button>
+        </div>
+    </form>
+</section>
+
+<section class="card stock-table-shell">
+    <form method="post" id="stock-sheet-form">
+        {% csrf_token %}
+        <input type="hidden" name="branch" value="{{ branch.id }}">
+        <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+
+        <div class="summary-cards stock-order-cards">
+            <article class="summary-card">
+                <label for="total_orders">Total Orders</label>
+                {% if editable_totals %}
+                <input class="number-input summary-input" id="total_orders" type="number" name="total_orders" value="{{ totals.total_orders }}" min="0">
+                {% else %}
+                <span class="calc-pill summary-static">{{ totals.total_orders }}</span>
+                <input type="hidden" name="total_orders" value="{{ totals.total_orders }}">
+                {% endif %}
+            </article>
+            <article class="summary-card">
+                <label for="shop_orders">Shop Orders</label>
+                {% if editable_totals %}
+                <input class="number-input summary-input" id="shop_orders" type="number" name="shop_orders" value="{{ totals.shop_orders }}" min="0">
+                {% else %}
+                <span class="calc-pill summary-static">{{ totals.shop_orders }}</span>
+                <input type="hidden" name="shop_orders" value="{{ totals.shop_orders }}">
+                {% endif %}
+            </article>
+            <article class="summary-card">
+                <label for="food_panda_orders">Food Panda Orders</label>
+                {% if editable_totals %}
+                <input class="number-input summary-input" id="food_panda_orders" type="number" name="food_panda_orders" value="{{ totals.food_panda_orders }}" min="0">
+                {% else %}
+                <span class="calc-pill summary-static">{{ totals.food_panda_orders }}</span>
+                <input type="hidden" name="food_panda_orders" value="{{ totals.food_panda_orders }}">
+                {% endif %}
+            </article>
+        </div>
+
+        <div class="table-card stock-table-card">
+            <table class="stock-table">
+                <thead>
+                    <tr>
+                        <th>No</th>
+                        <th>Item Name</th>
+                        <th>Opening</th>
+                        <th>Received</th>
+                        <th>Stock</th>
+                        <th>Sale</th>
+                        <th>Cancelled</th>
+                        <th>Exchange</th>
+                        <th>Ready</th>
+                        <th>InHand Stock</th>
+                        <th>Remaining</th>
+                        <th>Diff (+)</th>
+                        <th>Diff (-)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in entries %}
+                    <tr data-row>
+                        <td class="center-text">{{ forloop.counter }}</td>
+                        <td class="item-cell">{{ entry.item.name }}</td>
+                        <td>
+                            {% if "opening" in editable_fields %}
+                            <input class="number-input" type="number" name="opening_{{ entry.id }}" value="{{ entry.opening }}" min="0" data-field="opening">
+                            {% else %}
+                            <span class="calc-pill">{{ entry.opening }}</span>
+                            <input type="hidden" name="opening_{{ entry.id }}" value="{{ entry.opening }}" data-field="opening">
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if "received" in editable_fields %}
+                            <input class="number-input" type="number" name="received_{{ entry.id }}" value="{{ entry.received }}" min="0" data-field="received">
+                            {% else %}
+                            <span class="calc-pill">{{ entry.received }}</span>
+                            <input type="hidden" name="received_{{ entry.id }}" value="{{ entry.received }}" data-field="received">
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="calc-pill" data-output="stock">{{ entry.stock }}</span>
+                            <input type="hidden" name="stock_{{ entry.id }}" value="{{ entry.stock }}" data-field="stock">
+                        </td>
+                        <td>
+                            {% if "sale" in editable_fields %}
+                            <input class="number-input" type="number" name="sale_{{ entry.id }}" value="{{ entry.sale }}" min="0" data-field="sale">
+                            {% else %}
+                            <span class="calc-pill">{{ entry.sale }}</span>
+                            <input type="hidden" name="sale_{{ entry.id }}" value="{{ entry.sale }}" data-field="sale">
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if "cancelled" in editable_fields %}
+                            <input class="number-input" type="number" name="cancelled_{{ entry.id }}" value="{{ entry.cancelled }}" min="0" data-field="cancelled">
+                            {% else %}
+                            <span class="calc-pill">{{ entry.cancelled }}</span>
+                            <input type="hidden" name="cancelled_{{ entry.id }}" value="{{ entry.cancelled }}" data-field="cancelled">
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if "exchange" in editable_fields %}
+                            <input class="number-input" type="number" name="exchange_{{ entry.id }}" value="{{ entry.exchange }}" min="0" data-field="exchange">
+                            {% else %}
+                            <span class="calc-pill">{{ entry.exchange }}</span>
+                            <input type="hidden" name="exchange_{{ entry.id }}" value="{{ entry.exchange }}" data-field="exchange">
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if "ready" in editable_fields %}
+                            <input class="number-input" type="number" name="ready_{{ entry.id }}" value="{{ entry.ready }}" min="0" data-field="ready">
+                            {% else %}
+                            <span class="calc-pill">{{ entry.ready }}</span>
+                            <input type="hidden" name="ready_{{ entry.id }}" value="{{ entry.ready }}" data-field="ready">
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="calc-pill" data-output="in-hand">{{ entry.in_hand }}</span>
+                            <input type="hidden" name="in_hand_{{ entry.id }}" value="{{ entry.in_hand }}" data-field="in-hand">
+                        </td>
+                        <td>
+                            {% if "remaining" in editable_fields %}
+                            <input class="number-input" type="number" name="remaining_{{ entry.id }}" value="{{ entry.remaining }}" min="0" data-field="remaining">
+                            {% else %}
+                            <span class="calc-pill success-pill" data-output="remaining">{{ entry.remaining }}</span>
+                            <input type="hidden" name="remaining_{{ entry.id }}" value="{{ entry.remaining }}" data-field="remaining">
+                            {% endif %}
+                        </td>
+                        <td><span class="calc-pill info-pill" data-output="diff-plus">{{ entry.diff_plus }}</span></td>
+                        <td><span class="calc-pill warn-pill" data-output="diff-minus">{{ entry.diff_minus }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="sheet-actions">
+            <button type="submit" class="primary-button">{{ submit_label }}</button>
+        </div>
+    </form>
+</section>
+
+<script>
+(() => {
+    const toInt = (value) => {
+        const parsed = Number.parseInt(value, 10);
+        return Number.isNaN(parsed) ? 0 : parsed;
+    };
+
+    const rows = Array.from(document.querySelectorAll("[data-row]"));
+
+    const recalculateRow = (row) => {
+        const opening = toInt(row.querySelector('[data-field="opening"]').value);
+        const received = toInt(row.querySelector('[data-field="received"]').value);
+        const stock = opening + received;
+        const sale = toInt(row.querySelector('[data-field="sale"]').value);
+        const cancelled = toInt(row.querySelector('[data-field="cancelled"]').value);
+        const ready = toInt(row.querySelector('[data-field="ready"]').value);
+        const exchange = toInt(row.querySelector('[data-field="exchange"]').value);
+        const inHand = stock - sale;
+        const remaining = toInt(row.querySelector('[data-field="remaining"]').value);
+        const diffMinus = Math.max(remaining - inHand, 0);
+        const diffPlus = Math.max(inHand - remaining, 0);
+
+        const stockOutput = row.querySelector('[data-output="stock"]');
+        const stockInput = row.querySelector('[data-field="stock"]');
+        const inHandOutput = row.querySelector('[data-output="in-hand"]');
+        const inHandInput = row.querySelector('[data-field="in-hand"]');
+        stockOutput.textContent = stock;
+        stockInput.value = stock;
+        const remainingOutput = row.querySelector('[data-output="remaining"]');
+        if (remainingOutput) {
+            remainingOutput.textContent = remaining;
+        }
+        row.querySelector('[data-output="diff-plus"]').textContent = diffPlus;
+        row.querySelector('[data-output="diff-minus"]').textContent = diffMinus;
+        inHandOutput.textContent = inHand;
+        inHandInput.value = inHand;
+    };
+
+    rows.forEach((row) => {
+        row.querySelectorAll("input").forEach((input) => {
+            input.addEventListener("input", () => recalculateRow(row));
+        });
+        recalculateRow(row);
+    });
+})();
+</script>
+{% endblock %}

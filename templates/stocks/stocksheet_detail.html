@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ sheet.title }}{% endblock %}
+{% block content %}
+<section class="section-head">
+    <div>
+        <p class="eyebrow">Saved Summary</p>
+        <h1>{{ sheet.title }}</h1>
+        <p class="lead">{{ sheet.reference_number }} | {{ sheet.sheet_date }}</p>
+    </div>
+    <a href="{% url 'stocks:sheet_pdf' sheet.pk %}" class="primary-button">Download PDF</a>
+</section>
+
+<div class="summary-shell">
+    <section class="sheet-sections">
+        {% for section in display_sections %}
+        <section class="card summary-section">
+            <div class="section-head">
+                <div>
+                    <p class="eyebrow">{{ section.title }}</p>
+                    <h2>{{ section.title }}</h2>
+                </div>
+            </div>
+            <div class="input-list">
+                {% for row in section.rows %}
+                <div class="line-row readonly-row"><span>{{ row.label }}</span><strong>{{ row.value }}</strong></div>
+                {% endfor %}
+                <div class="line-row total-row readonly-row">
+                    <span>{{ section.total_label }}</span>
+                    <strong>{{ section.total_value }}</strong>
+                </div>
+            </div>
+        </section>
+        {% endfor %}
+    </section>
+
+    <aside class="card account-summary-card">
+        <p class="eyebrow">Section Title</p>
+        <h2>ACCOUNT SUMMARY</h2>
+        <div class="input-list">
+            <div class="line-row readonly-row total-row"><span>System Sale</span><strong>{{ sheet.totals.system_sale|default:"0" }}</strong></div>
+            <div class="line-row readonly-row total-row"><span>Counter Sale</span><strong>{{ sheet.totals.counter_sale|default:"0" }}</strong></div>
+            <div class="line-row readonly-row total-row"><span>Total Sale</span><strong>{{ sheet.totals.total_sale|default:"0" }}</strong></div>
+            <div class="line-row readonly-row total-row"><span>Total Purchase</span><strong>{{ sheet.totals.total_purchase|default:"0" }}</strong></div>
+            <div class="line-row readonly-row total-row"><span>Difference</span><strong>{{ sheet.totals.difference|default:"0" }}</strong></div>
+            <div class="line-row readonly-row total-row"><span>Balance</span><strong>{{ sheet.totals.balance|default:"0" }}</strong></div>
+        </div>
+    </aside>
+</div>
+{% endblock %}

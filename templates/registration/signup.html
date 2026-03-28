@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Create Account{% endblock %}
+{% block content %}
+<section class="auth-card">
+    <div>
+        <p class="eyebrow">Start organized</p>
+        <h1>Create your stock sheet workspace</h1>
+        <p class="lead">Set up your account to build stock sheets, control data entry, and export inventory PDFs.</p>
+    </div>
+    <form method="post" class="card form-grid">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        {% for field in form %}
+        <div>
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+            {{ field.errors }}
+        </div>
+        {% endfor %}
+        <button type="submit" class="primary-button">Create account</button>
+    </form>
+    <p class="auth-switch">Already have an account? <a href="{% url 'login' %}">Sign in</a></p>
+</section>
+{% endblock %}
