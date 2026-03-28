@@ -146,12 +146,12 @@ STORAGES = {
         'BACKEND': 'django.core.files.storage.FileSystemStorage',
     },
     'staticfiles': {
-        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
     },
 }
 
 # Allow WhiteNoise to serve files straight from STATICFILES_DIRS if collectstatic
-# was skipped during a deploy. This keeps Render from 404ing on app.css.
+# was skipped during a deploy. This keeps Render from failing on app.css.
 WHITENOISE_USE_FINDERS = True
 WHITENOISE_AUTOREFRESH = DEBUG
 
