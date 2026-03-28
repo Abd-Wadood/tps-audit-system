@@ -138,10 +138,22 @@ USE_TZ = True
 # STATIC FILES
 # ========================
 STATIC_URL = '/static/'
-STATICFILES_DIRS = [STATIC_DIR]
+STATICFILES_DIRS = [STATIC_DIR] if STATIC_DIR.exists() else []
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
+
+# Allow WhiteNoise to serve files straight from STATICFILES_DIRS if collectstatic
+# was skipped during a deploy. This keeps Render from 404ing on app.css.
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = DEBUG
 
 # ========================
 # AUTH REDIRECTS

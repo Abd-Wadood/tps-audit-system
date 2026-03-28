@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: tps-audit-system
+    env: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn config.wsgi"
