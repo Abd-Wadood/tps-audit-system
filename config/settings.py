@@ -31,14 +31,22 @@ if not SECRET_KEY:
 # ========================
 # ALLOWED HOSTS
 # ========================
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
 
+raw_hosts = os.getenv("DJANGO_ALLOWED_HOSTS", "")
+
+if raw_hosts:
+    ALLOWED_HOSTS = [host.strip() for host in raw_hosts.split(",") if host.strip()]
+else:
+    ALLOWED_HOSTS = []
+
+# Add Render hostname automatically (production)
 render_host = os.getenv("RENDER_EXTERNAL_HOSTNAME")
 if render_host:
     ALLOWED_HOSTS.append(render_host)
 
-if not ALLOWED_HOSTS:
-    ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+# Local development fallback
+if DEBUG:
+    ALLOWED_HOSTS += ["127.0.0.1", "localhost"]
 
 # ========================
 # APPLICATIONS
@@ -110,8 +118,12 @@ if DATABASE_URL:
 else:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'stocksheet_db',
+            'USER': 'postgres',
+            'PASSWORD': '123',
+            'HOST': 'localhost',
+            'PORT': '5432',
         }
     }
 

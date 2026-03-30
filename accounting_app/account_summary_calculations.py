@@ -128,7 +128,7 @@ def calculate_totals(system_sale, local_data, market_data, counter_data, total_d
     )
 
     system_sale_value = parse_decimal(system_sale, clamp_non_negative=True)
-    total_sale = counter_sale + direct_sale
+    total_sale = counter_sale + direct_sale + credit
     total_purchase = total_local_purchase + total_market_purchase + (
         loan + extra_fee + total_wage + counter_purchase + custom_total_adjustments + discount
     )
@@ -154,4 +154,5 @@ def calculate_totals(system_sale, local_data, market_data, counter_data, total_d
         "counter_purchase": counter_purchase,
         "custom_total_adjustments": custom_total_adjustments,
         "adjustment_total": loan + extra_fee + total_wage + counter_purchase + custom_total_adjustments + discount,
+        "counter_sale_total": counter_sale + direct_sale + credit,
     }
