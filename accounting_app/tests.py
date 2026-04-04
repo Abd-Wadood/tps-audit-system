@@ -1,12 +1,14 @@
 from datetime import date
+from decimal import Decimal
 
 from django.contrib.auth.models import Group, User
 from django.test import TestCase
 from django.urls import reverse
 
+from stock_control.sheet_logic import resolve_sheet
 from user_access.constants import ACCOUNTING_ROLE
 from user_access.models import UserWorkspace
-from stocks.models import Branch, DailyStock, StockSheet
+from stocks.models import Branch, DailyStock, StockEntry, StockSheet
 
 
 class AccountingSummaryFlowTests(TestCase):
@@ -284,6 +286,50 @@ class AccountingSummaryFlowTests(TestCase):
         self.assertEqual(response.status_code, 302)
         created_user = User.objects.get(username="all-branches-user")
         self.assertIsNone(created_user.workspace.branch)
+
+    def test_accounting_review_adds_ready_to_remaining(self):
+        accounting_group, _ = Group.objects.get_or_create(name=ACCOUNTING_ROLE)
+        accounting_user = User.objects.create_user(username="reviewer", password="testpass123")
+        accounting_user.groups.add(accounting_group)
+        UserWorkspace.objects.create(user=accounting_user, branch=self.branch)
+        context = resolve_sheet(branch_id=self.branch.pk, raw_date="2026-04-04")
+        entry = context["entries"][0]
+        entry.opening = Decimal("10.00")
+        entry.received = Decimal("0.00")
+        entry.stock = Decimal("10.00")
+        entry.sale = Decimal("2.00")
+        entry.cancelled = Decimal("0.00")
+        entry.ready = Decimal("0.00")
+        entry.in_hand = Decimal("8.00")
+        entry.remaining_value = Decimal("3.00")
+        entry.save()
+
+        self.client.force_login(accounting_user)
+        response = self.client.post(
+            reverse("accounting_app:stock_review"),
+            {
+                "branch": str(self.branch.pk),
+                "date": "2026-04-04",
+                "total_orders": "0",
+                "shop_orders": "0",
+                "food_panda_orders": "0",
+                f"cancelled_{entry.id}": "0.00",
+                f"ready_{entry.id}": "1.25",
+                f"remaining_{entry.id}": "4.25",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        entry.refresh_from_db()
+        self.assertEqual(entry.ready, Decimal("1.25"))
+        self.assertEqual(entry.remaining_value, Decimal("4.25"))
+
+        get_response = self.client.get(
+            reverse("accounting_app:stock_review"),
+            {"branch": self.branch.pk, "date": "2026-04-04"},
+        )
+        reviewed_entry = get_response.context["entries"][0]
+        self.assertEqual(reviewed_entry.review_base_remaining, Decimal("3.00"))
 
     def test_negative_accounting_inputs_are_clamped_to_zero(self):
         response = self.client.post(

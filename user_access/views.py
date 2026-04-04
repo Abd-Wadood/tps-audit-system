@@ -9,6 +9,7 @@ from django.utils.dateparse import parse_date
 
 from stock_control.sheet_logic import ensure_seed_data
 from stocks.models import Branch, StockSheet
+from .access import get_branch_aware_url, get_user_branch_id
 from .constants import ACCOUNTING_ROLE, REPORT_ROLE, STOCK_ROLE
 from .forms import OwnerUserCreateForm, OwnerUserRoleForm, SignInForm
 from .models import UserWorkspace
@@ -28,27 +29,6 @@ def parse_optional_int(value):
         return int(value) if value else None
     except (TypeError, ValueError):
         return None
-
-
-def get_user_branch(user):
-    workspace = getattr(user, "workspace", None)
-    if not workspace:
-        return None
-    return workspace.branch
-
-
-def get_user_branch_id(user):
-    branch = get_user_branch(user)
-    return branch.pk if branch else None
-
-
-def get_branch_aware_url(view_name, user):
-    branch_id = get_user_branch_id(user)
-    url = reverse(view_name)
-    if branch_id:
-        separator = "&" if "?" in url else "?"
-        return f"{url}{separator}branch={branch_id}"
-    return url
 
 
 class WorkspaceLoginView(LoginView):

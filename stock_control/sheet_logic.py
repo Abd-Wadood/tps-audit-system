@@ -1,3 +1,4 @@
+from decimal import Decimal, InvalidOperation
 from datetime import date
 
 from django.shortcuts import get_object_or_404
@@ -13,6 +14,13 @@ def coerce_int(value):
         return max(int(value), 0)
     except (TypeError, ValueError):
         return 0
+
+
+def coerce_decimal(value):
+    try:
+        return max(Decimal(str(value)), Decimal("0"))
+    except (InvalidOperation, TypeError, ValueError):
+        return Decimal("0")
 
 
 def ensure_seed_data():

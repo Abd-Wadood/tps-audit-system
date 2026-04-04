@@ -98,7 +98,7 @@
                         <td class="item-cell">{{ entry.item.name }}</td>
                         <td>
                             {% if "opening" in editable_fields %}
-                            <input class="number-input" type="number" name="opening_{{ entry.id }}" value="{{ entry.opening }}" min="0" data-field="opening">
+                            <input class="number-input" type="number" name="opening_{{ entry.id }}" value="{{ entry.opening }}" min="0" step="0.01" data-field="opening">
                             {% else %}
                             <span class="calc-pill">{{ entry.opening }}</span>
                             <input type="hidden" name="opening_{{ entry.id }}" value="{{ entry.opening }}" data-field="opening">
@@ -106,7 +106,7 @@
                         </td>
                         <td>
                             {% if "received" in editable_fields %}
-                            <input class="number-input" type="number" name="received_{{ entry.id }}" value="{{ entry.received }}" min="0" data-field="received">
+                            <input class="number-input" type="number" name="received_{{ entry.id }}" value="{{ entry.received }}" min="0" step="0.01" data-field="received">
                             {% else %}
                             <span class="calc-pill">{{ entry.received }}</span>
                             <input type="hidden" name="received_{{ entry.id }}" value="{{ entry.received }}" data-field="received">
@@ -118,7 +118,7 @@
                         </td>
                         <td>
                             {% if "sale" in editable_fields %}
-                            <input class="number-input" type="number" name="sale_{{ entry.id }}" value="{{ entry.sale }}" min="0" data-field="sale">
+                            <input class="number-input" type="number" name="sale_{{ entry.id }}" value="{{ entry.sale }}" min="0" step="0.01" data-field="sale">
                             {% else %}
                             <span class="calc-pill">{{ entry.sale }}</span>
                             <input type="hidden" name="sale_{{ entry.id }}" value="{{ entry.sale }}" data-field="sale">
@@ -126,7 +126,7 @@
                         </td>
                         <td>
                             {% if "cancelled" in editable_fields %}
-                            <input class="number-input" type="number" name="cancelled_{{ entry.id }}" value="{{ entry.cancelled }}" min="0" data-field="cancelled">
+                            <input class="number-input" type="number" name="cancelled_{{ entry.id }}" value="{{ entry.cancelled }}" min="0" step="0.01" data-field="cancelled">
                             {% else %}
                             <span class="calc-pill">{{ entry.cancelled }}</span>
                             <input type="hidden" name="cancelled_{{ entry.id }}" value="{{ entry.cancelled }}" data-field="cancelled">
@@ -134,7 +134,7 @@
                         </td>
                         <td>
                             {% if "exchange" in editable_fields %}
-                            <input class="number-input" type="number" name="exchange_{{ entry.id }}" value="{{ entry.exchange }}" min="0" data-field="exchange">
+                            <input class="number-input" type="number" name="exchange_{{ entry.id }}" value="{{ entry.exchange }}" min="0" step="0.01" data-field="exchange">
                             {% else %}
                             <span class="calc-pill">{{ entry.exchange }}</span>
                             <input type="hidden" name="exchange_{{ entry.id }}" value="{{ entry.exchange }}" data-field="exchange">
@@ -142,7 +142,7 @@
                         </td>
                         <td>
                             {% if "ready" in editable_fields %}
-                            <input class="number-input" type="number" name="ready_{{ entry.id }}" value="{{ entry.ready }}" min="0" data-field="ready">
+                            <input class="number-input" type="number" name="ready_{{ entry.id }}" value="{{ entry.ready }}" min="0" step="0.01" data-field="ready">
                             {% else %}
                             <span class="calc-pill">{{ entry.ready }}</span>
                             <input type="hidden" name="ready_{{ entry.id }}" value="{{ entry.ready }}" data-field="ready">
@@ -154,10 +154,10 @@
                         </td>
                         <td>
                             {% if "remaining" in editable_fields %}
-                            <input class="number-input" type="number" name="remaining_{{ entry.id }}" value="{{ entry.remaining }}" min="0" data-field="remaining">
+                            <input class="number-input" type="number" name="remaining_{{ entry.id }}" value="{{ entry.remaining }}" min="0" step="0.01" data-field="remaining">
                             {% else %}
                             <span class="calc-pill success-pill" data-output="remaining">{{ entry.remaining }}</span>
-                            <input type="hidden" name="remaining_{{ entry.id }}" value="{{ entry.remaining }}" data-field="remaining">
+                            <input type="hidden" name="remaining_{{ entry.id }}" value="{{ entry.remaining }}" data-field="remaining" data-base-remaining="{% if ready_adds_to_remaining %}{{ entry.review_base_remaining }}{% else %}{{ entry.remaining }}{% endif %}">
                             {% endif %}
                         </td>
                         <td><span class="calc-pill info-pill" data-output="diff-plus">{{ entry.diff_plus }}</span></td>
@@ -176,23 +176,30 @@
 
 <script>
 (() => {
-    const toInt = (value) => {
-        const parsed = Number.parseInt(value, 10);
+    const toNumber = (value) => {
+        const parsed = Number.parseFloat(value);
         return Number.isNaN(parsed) ? 0 : parsed;
+    };
+
+    const formatNumber = (value) => {
+        const rounded = Math.round(value * 100) / 100;
+        return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
     };
 
     const rows = Array.from(document.querySelectorAll("[data-row]"));
 
     const recalculateRow = (row) => {
-        const opening = toInt(row.querySelector('[data-field="opening"]').value);
-        const received = toInt(row.querySelector('[data-field="received"]').value);
+        const opening = toNumber(row.querySelector('[data-field="opening"]').value);
+        const received = toNumber(row.querySelector('[data-field="received"]').value);
         const stock = opening + received;
-        const sale = toInt(row.querySelector('[data-field="sale"]').value);
-        const cancelled = toInt(row.querySelector('[data-field="cancelled"]').value);
-        const ready = toInt(row.querySelector('[data-field="ready"]').value);
-        const exchange = toInt(row.querySelector('[data-field="exchange"]').value);
+        const sale = toNumber(row.querySelector('[data-field="sale"]').value);
+        const cancelled = toNumber(row.querySelector('[data-field="cancelled"]').value);
+        const ready = toNumber(row.querySelector('[data-field="ready"]').value);
+        const exchange = toNumber(row.querySelector('[data-field="exchange"]').value);
         const inHand = stock - sale + cancelled;
-        const remaining = toInt(row.querySelector('[data-field="remaining"]').value);
+        const remainingInput = row.querySelector('[data-field="remaining"]');
+        const baseRemaining = toNumber(remainingInput.dataset.baseRemaining || remainingInput.value);
+        const remaining = remainingInput.type === "hidden" && {{ ready_adds_to_remaining|yesno:"true,false" }} ? baseRemaining + ready : toNumber(remainingInput.value);
         const diffMinus = Math.max(remaining - inHand, 0);
         const diffPlus = Math.max(inHand - remaining, 0);
 
@@ -200,16 +207,17 @@
         const stockInput = row.querySelector('[data-field="stock"]');
         const inHandOutput = row.querySelector('[data-output="in-hand"]');
         const inHandInput = row.querySelector('[data-field="in-hand"]');
-        stockOutput.textContent = stock;
-        stockInput.value = stock;
+        stockOutput.textContent = formatNumber(stock);
+        stockInput.value = stock.toFixed(2);
         const remainingOutput = row.querySelector('[data-output="remaining"]');
         if (remainingOutput) {
-            remainingOutput.textContent = remaining;
+            remainingOutput.textContent = formatNumber(remaining);
         }
-        row.querySelector('[data-output="diff-plus"]').textContent = diffPlus;
-        row.querySelector('[data-output="diff-minus"]').textContent = diffMinus;
-        inHandOutput.textContent = inHand;
-        inHandInput.value = inHand;
+        remainingInput.value = remaining.toFixed(2);
+        row.querySelector('[data-output="diff-plus"]').textContent = formatNumber(diffPlus);
+        row.querySelector('[data-output="diff-minus"]').textContent = formatNumber(diffMinus);
+        inHandOutput.textContent = formatNumber(inHand);
+        inHandInput.value = inHand.toFixed(2);
     };
 
     rows.forEach((row) => {

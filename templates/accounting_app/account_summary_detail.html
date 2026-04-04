@@ -7,7 +7,6 @@
         <h1>{{ sheet.title }}</h1>
         <p class="lead">{{ sheet.reference_number }} | {{ sheet.sheet_date }} | {{ sheet.branch.name|default:"Unassigned" }}</p>
     </div>
-    <a href="{% url 'accounting_app:summary_pdf' sheet.pk %}" class="primary-button">Download PDF</a>
 </section>
 
 <div class="summary-shell">

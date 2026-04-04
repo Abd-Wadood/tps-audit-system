@@ -1,24 +1,27 @@
 {% extends "base.html" %}
 {% block title %}Sign In{% endblock %}
+{% block body_class %}auth-page{% endblock %}
 {% block content %}
-<section class="auth-card">
-    <div>
-        <p class="eyebrow">Secure access</p>
-        <h1>Sign in to your workspace</h1>
-        <p class="lead">Stock users update daily stock, accounting users create summaries, and report admins review generated reports.</p>
-    </div>
-    <form method="post" class="card form-grid">
-        {% csrf_token %}
-        {{ form.non_field_errors }}
-        {% for field in form %}
+<section class="auth-scene">
+    <section class="auth-card">
         <div>
-            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-            {{ field }}
-            {{ field.errors }}
+            <p class="eyebrow">Secure access</p>
+            <h1>Sign in to your workspace</h1>
+            <p class="lead">Stock users update daily stock, accounting users create summaries, and report admins review generated reports.</p>
         </div>
-        {% endfor %}
-        <button type="submit" class="primary-button">Sign in</button>
-    </form>
-    <p class="auth-switch">Accounts are created by the owner inside the workspace user management screen.</p>
+        <form method="post" class="card form-grid">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+            {% for field in form %}
+            <div>
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {{ field.errors }}
+            </div>
+            {% endfor %}
+            <button type="submit" class="primary-button">Sign in</button>
+        </form>
+        <p class="auth-switch">Accounts are created by the owner inside the workspace user management screen.</p>
+    </section>
 </section>
 {% endblock %}

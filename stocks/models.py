@@ -75,15 +75,15 @@ class DailyStock(models.Model):
 class StockEntry(models.Model):
     daily_stock = models.ForeignKey(DailyStock, on_delete=models.CASCADE, related_name="entries")
     item = models.ForeignKey(Item, on_delete=models.CASCADE, related_name="stock_entries")
-    opening = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    received = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    stock = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    sale = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    cancelled = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    exchange = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    ready = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    in_hand = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    remaining_value = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    opening = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    received = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    stock = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    sale = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    cancelled = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    exchange = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    ready = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    in_hand = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    remaining_value = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)])
 
     class Meta:
         ordering = ["item_id"]

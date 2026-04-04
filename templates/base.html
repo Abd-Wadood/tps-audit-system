@@ -5,9 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Daily Stock Control System{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'css/app.css' %}">
+    <link rel="icon" type="image/png" href="{% static 'css/images/LOGO_1.png' %}">
+    <link rel="stylesheet" href="{% static 'css/app.css' %}?v=black-red-navy">
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
     <div class="page-shell">
         <aside class="sidebar">
             <a class="brand" href="{% url 'user_access:workspace_home' %}">
