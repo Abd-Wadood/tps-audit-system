@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 import dj_database_url
+from .env import load_env_file
 
 # ========================
 # BASE SETUP
@@ -9,6 +10,9 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 TEMPLATE_DIR = BASE_DIR / "templates"
 STATIC_DIR = BASE_DIR / "static"
+
+# Load environment variables from .env file
+load_env_file(BASE_DIR / ".env")
 
 # ========================
 # ENVIRONMENT VARIABLES

@@ -33,17 +33,5 @@
         {% endfor %}
     </section>
 
-    <aside class="card account-summary-card">
-        <p class="eyebrow">Summary</p>
-        <h2>ACCOUNT SUMMARY</h2>
-        <div class="input-list">
-            <div class="line-row readonly-row total-row"><span>System Sale</span><strong>{{ sheet.totals.system_sale|default:"0" }}</strong></div>
-            <div class="line-row readonly-row total-row"><span>Counter Sale</span><strong>{{ sheet.totals.counter_sale|default:"0" }}</strong></div>
-            <div class="line-row readonly-row total-row"><span>Total Sale</span><strong>{{ sheet.totals.total_sale|default:"0" }}</strong></div>
-            <div class="line-row readonly-row total-row"><span>Total Purchase</span><strong>{{ sheet.totals.total_purchase|default:"0" }}</strong></div>
-            <div class="line-row readonly-row total-row"><span>Difference</span><strong>{{ sheet.totals.difference|default:"0" }}</strong></div>
-            <div class="line-row readonly-row total-row"><span>Balance</span><strong>{{ sheet.totals.balance|default:"0" }}</strong></div>
-        </div>
-    </aside>
 </div>
 {% endblock %}

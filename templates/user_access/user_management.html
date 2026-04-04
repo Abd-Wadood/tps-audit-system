@@ -39,6 +39,7 @@
             <div class="line-row readonly-row"><span>`accounting_user`</span><strong>New Summary Only</strong></div>
             <div class="line-row readonly-row"><span>`report_admin`</span><strong>Reports Only</strong></div>
             <div class="line-row readonly-row"><span>Owner/Admin</span><strong>All Sections</strong></div>
+            <div class="line-row readonly-row"><span>All Branches</span><strong>Leave branch access on "All Branches"</strong></div>
         </div>
     </aside>
 </section>
@@ -59,7 +60,8 @@
                     <th>Name</th>
                     <th>Email</th>
                     <th>Current Access</th>
-                    <th>Update Role</th>
+                    <th>Branch</th>
+                    <th>Update Access</th>
                     <th>Delete User</th>
                 </tr>
             </thead>
@@ -77,6 +79,9 @@
                         {% endif %}
                     </td>
                     <td>
+                        {{ item.managed_user.workspace.branch.name|default:"All Branches" }}
+                    </td>
+                    <td>
                         {% if item.managed_user.is_superuser %}
                         <span class="calc-pill">System Managed</span>
                         {% else %}
@@ -85,6 +90,7 @@
                             <input type="hidden" name="action" value="update_role">
                             {{ item.form.user_id }}
                             {{ item.form.role }}
+                            {{ item.form.branch }}
                             <button type="submit" class="ghost-button">Save</button>
                         </form>
                         {% endif %}

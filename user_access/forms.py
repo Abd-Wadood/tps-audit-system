@@ -3,6 +3,7 @@ from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 
+from stocks.models import Branch
 from .constants import ROLE_CHOICES
 
 
@@ -23,11 +24,17 @@ class SignInForm(AuthenticationForm):
 
 class OwnerUserCreateForm(forms.ModelForm):
     role = forms.ChoiceField(choices=ROLE_CHOICES)
+    branch = forms.ModelChoiceField(queryset=Branch.objects.none(), required=False, empty_label="All Branches")
     password = forms.CharField(widget=forms.PasswordInput)
 
     class Meta:
         model = User
         fields = ("first_name", "last_name", "username", "email")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["branch"].queryset = Branch.objects.order_by("name")
+        self.fields["branch"].label = "Branch Access"
 
     def clean_password(self):
         password = self.cleaned_data["password"]
@@ -44,3 +51,9 @@ class OwnerUserCreateForm(forms.ModelForm):
 class OwnerUserRoleForm(forms.Form):
     user_id = forms.IntegerField(widget=forms.HiddenInput)
     role = forms.ChoiceField(choices=ROLE_CHOICES)
+    branch = forms.ModelChoiceField(queryset=Branch.objects.none(), required=False, empty_label="All Branches")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["branch"].queryset = Branch.objects.order_by("name")
+        self.fields["branch"].label = "Branch Access"
