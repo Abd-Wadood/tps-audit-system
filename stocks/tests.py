@@ -65,6 +65,18 @@ class StockSheetTests(TestCase):
         self.assertEqual(context["branch"].pk, branch.pk)
         self.assertTrue(any(option.pk == branch.pk for option in context["branches"]))
 
+    def test_new_sheet_opening_uses_previous_day_remaining(self):
+        first_context = resolve_sheet(raw_date="2026-03-20")
+        first_entry = first_context["entries"][0]
+        first_entry.remaining_value = Decimal("7.00")
+        first_entry.save(update_fields=["remaining_value"])
+
+        next_context = resolve_sheet(raw_date="2026-03-21")
+        next_entry = next_context["entries"][0]
+
+        self.assertEqual(next_entry.opening, Decimal("7.00"))
+        self.assertEqual(next_entry.stock, Decimal("7.00"))
+
     def test_daily_stock_second_save_tracks_revision_user_and_count(self):
         self.client.force_login(self.user)
 

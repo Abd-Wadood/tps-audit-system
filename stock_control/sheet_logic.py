@@ -55,6 +55,18 @@ def parse_selected_date(raw_date):
     return parsed_date
 
 
+def get_previous_remaining_map(branch, selected_date):
+    previous_entries = (
+        StockEntry.objects.filter(daily_stock__branch=branch, daily_stock__date__lt=selected_date)
+        .select_related("daily_stock")
+        .order_by("item_id", "-daily_stock__date", "-daily_stock__created_at")
+    )
+    remaining_map = {}
+    for entry in previous_entries:
+        remaining_map.setdefault(entry.item_id, entry.remaining_value)
+    return remaining_map
+
+
 def resolve_sheet(branch_id=None, raw_date=None, branch_queryset=None, default_branch_id=None):
     ensure_seed_data()
 
@@ -71,7 +83,17 @@ def resolve_sheet(branch_id=None, raw_date=None, branch_queryset=None, default_b
     daily_stock, daily_stock_created = DailyStock.objects.get_or_create(branch=branch, date=selected_date)
     items = list(Item.objects.all())
     existing_item_ids = set(daily_stock.entries.values_list("item_id", flat=True))
-    missing_entries = [StockEntry(daily_stock=daily_stock, item=item) for item in items if item.id not in existing_item_ids]
+    previous_remaining_map = get_previous_remaining_map(branch, selected_date)
+    missing_entries = [
+        StockEntry(
+            daily_stock=daily_stock,
+            item=item,
+            opening=previous_remaining_map.get(item.id, Decimal("0")),
+            stock=previous_remaining_map.get(item.id, Decimal("0")),
+        )
+        for item in items
+        if item.id not in existing_item_ids
+    ]
     if missing_entries:
         StockEntry.objects.bulk_create(missing_entries)
 
