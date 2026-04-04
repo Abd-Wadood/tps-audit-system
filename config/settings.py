@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 import dj_database_url
+from .env import load_env_file
 
 # ========================
 # BASE SETUP
@@ -10,6 +11,8 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 TEMPLATE_DIR = BASE_DIR / "templates"
 STATIC_DIR = BASE_DIR / "static"
+
+load_env_file(BASE_DIR / ".env")
 
 # ========================
 # ENVIRONMENT VARIABLES
@@ -32,13 +35,14 @@ if not SECRET_KEY:
 # ========================
 # ALLOWED HOSTS
 # ========================
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
+raw_hosts = os.getenv("DJANGO_ALLOWED_HOSTS", "")
+ALLOWED_HOSTS = [host.strip() for host in raw_hosts.split(",") if host.strip()]
 
 render_host = os.getenv("RENDER_EXTERNAL_HOSTNAME")
 if render_host:
     ALLOWED_HOSTS.append(render_host)
 
-if not ALLOWED_HOSTS:
+if DEBUG and not ALLOWED_HOSTS:
     ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 
 # ========================
@@ -103,18 +107,32 @@ TEMPLATES = [
 # DATABASE
 # ========================
 DATABASE_URL = os.getenv("DATABASE_URL")
+USE_POSTGRES = os.getenv("USE_POSTGRES", "False").lower() == "true"
 
 if DATABASE_URL:
     DATABASES = {
         'default': dj_database_url.parse(DATABASE_URL)
     }
-else:
+elif USE_POSTGRES:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('POSTGRES_DB', 'stocksheet_db'),
+            'USER': os.getenv('POSTGRES_USER', 'postgres'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
+            'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
+            'PORT': os.getenv('POSTGRES_PORT', '5432'),
+        }
+    }
+elif DEBUG:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
+else:
+    raise ImproperlyConfigured("Set DATABASE_URL for production, or enable DJANGO_DEBUG for local SQLite.")
 
 # ========================
 # PASSWORD VALIDATION
