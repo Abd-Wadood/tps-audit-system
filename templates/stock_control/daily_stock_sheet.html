@@ -93,12 +93,12 @@
                 </thead>
                 <tbody>
                     {% for entry in entries %}
-                    <tr data-row>
+                    <tr data-row data-allows-decimal="{{ entry.allows_decimal|yesno:'true,false' }}">
                         <td class="center-text">{{ forloop.counter }}</td>
                         <td class="item-cell">{{ entry.item.name }}</td>
                         <td>
                             {% if "opening" in editable_fields %}
-                            <input class="number-input" type="number" name="opening_{{ entry.id }}" value="{{ entry.opening }}" min="0" step="0.01" data-field="opening">
+                            <input class="number-input" type="number" name="opening_{{ entry.id }}" value="{{ entry.opening }}" min="0" step="{% if entry.allows_decimal %}0.01{% else %}1{% endif %}" data-field="opening">
                             {% else %}
                             <span class="calc-pill">{{ entry.opening }}</span>
                             <input type="hidden" name="opening_{{ entry.id }}" value="{{ entry.opening }}" data-field="opening">
@@ -106,7 +106,7 @@
                         </td>
                         <td>
                             {% if "received" in editable_fields %}
-                            <input class="number-input" type="number" name="received_{{ entry.id }}" value="{{ entry.received }}" min="0" step="0.01" data-field="received">
+                            <input class="number-input" type="number" name="received_{{ entry.id }}" value="{{ entry.received }}" min="0" step="{% if entry.allows_decimal %}0.01{% else %}1{% endif %}" data-field="received">
                             {% else %}
                             <span class="calc-pill">{{ entry.received }}</span>
                             <input type="hidden" name="received_{{ entry.id }}" value="{{ entry.received }}" data-field="received">
@@ -118,7 +118,7 @@
                         </td>
                         <td>
                             {% if "sale" in editable_fields %}
-                            <input class="number-input" type="number" name="sale_{{ entry.id }}" value="{{ entry.sale }}" min="0" step="0.01" data-field="sale">
+                            <input class="number-input" type="number" name="sale_{{ entry.id }}" value="{{ entry.sale }}" min="0" step="{% if entry.allows_decimal %}0.01{% else %}1{% endif %}" data-field="sale">
                             {% else %}
                             <span class="calc-pill">{{ entry.sale }}</span>
                             <input type="hidden" name="sale_{{ entry.id }}" value="{{ entry.sale }}" data-field="sale">
@@ -126,7 +126,7 @@
                         </td>
                         <td>
                             {% if "cancelled" in editable_fields %}
-                            <input class="number-input" type="number" name="cancelled_{{ entry.id }}" value="{{ entry.cancelled }}" min="0" step="0.01" data-field="cancelled">
+                            <input class="number-input" type="number" name="cancelled_{{ entry.id }}" value="{{ entry.cancelled }}" min="0" step="{% if entry.allows_decimal %}0.01{% else %}1{% endif %}" data-field="cancelled">
                             {% else %}
                             <span class="calc-pill">{{ entry.cancelled }}</span>
                             <input type="hidden" name="cancelled_{{ entry.id }}" value="{{ entry.cancelled }}" data-field="cancelled">
@@ -134,7 +134,7 @@
                         </td>
                         <td>
                             {% if "exchange" in editable_fields %}
-                            <input class="number-input" type="number" name="exchange_{{ entry.id }}" value="{{ entry.exchange }}" min="0" step="0.01" data-field="exchange">
+                            <input class="number-input" type="number" name="exchange_{{ entry.id }}" value="{{ entry.exchange }}" min="0" step="{% if entry.allows_decimal %}0.01{% else %}1{% endif %}" data-field="exchange">
                             {% else %}
                             <span class="calc-pill">{{ entry.exchange }}</span>
                             <input type="hidden" name="exchange_{{ entry.id }}" value="{{ entry.exchange }}" data-field="exchange">
@@ -142,7 +142,7 @@
                         </td>
                         <td>
                             {% if "ready" in editable_fields %}
-                            <input class="number-input" type="number" name="ready_{{ entry.id }}" value="{{ entry.ready }}" min="0" step="0.01" data-field="ready">
+                            <input class="number-input" type="number" name="ready_{{ entry.id }}" value="{{ entry.ready }}" min="0" step="{% if entry.allows_decimal %}0.01{% else %}1{% endif %}" data-field="ready">
                             {% else %}
                             <span class="calc-pill">{{ entry.ready }}</span>
                             <input type="hidden" name="ready_{{ entry.id }}" value="{{ entry.ready }}" data-field="ready">
@@ -154,7 +154,7 @@
                         </td>
                         <td>
                             {% if "remaining" in editable_fields %}
-                            <input class="number-input" type="number" name="remaining_{{ entry.id }}" value="{{ entry.remaining }}" min="0" step="0.01" data-field="remaining">
+                            <input class="number-input" type="number" name="remaining_{{ entry.id }}" value="{{ entry.remaining }}" min="0" step="{% if entry.allows_decimal %}0.01{% else %}1{% endif %}" data-field="remaining">
                             {% else %}
                             <span class="calc-pill success-pill" data-output="remaining">{{ entry.remaining }}</span>
                             <input type="hidden" name="remaining_{{ entry.id }}" value="{{ entry.remaining }}" data-field="remaining" data-base-remaining="{% if ready_adds_to_remaining %}{{ entry.review_base_remaining }}{% else %}{{ entry.remaining }}{% endif %}">
@@ -186,38 +186,49 @@
         return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
     };
 
+    const normalizeNumber = (value, allowsDecimal) => {
+        if (allowsDecimal) {
+            return Math.round(value * 100) / 100;
+        }
+        return Math.round(value);
+    };
+
     const rows = Array.from(document.querySelectorAll("[data-row]"));
 
     const recalculateRow = (row) => {
-        const opening = toNumber(row.querySelector('[data-field="opening"]').value);
-        const received = toNumber(row.querySelector('[data-field="received"]').value);
-        const stock = opening + received;
-        const sale = toNumber(row.querySelector('[data-field="sale"]').value);
-        const cancelled = toNumber(row.querySelector('[data-field="cancelled"]').value);
-        const ready = toNumber(row.querySelector('[data-field="ready"]').value);
-        const exchange = toNumber(row.querySelector('[data-field="exchange"]').value);
-        const inHand = stock - sale + cancelled;
+        const allowsDecimal = row.dataset.allowsDecimal === "true";
+        const opening = normalizeNumber(toNumber(row.querySelector('[data-field="opening"]').value), allowsDecimal);
+        const received = normalizeNumber(toNumber(row.querySelector('[data-field="received"]').value), allowsDecimal);
+        const stock = normalizeNumber(opening + received, allowsDecimal);
+        const sale = normalizeNumber(toNumber(row.querySelector('[data-field="sale"]').value), allowsDecimal);
+        const cancelled = normalizeNumber(toNumber(row.querySelector('[data-field="cancelled"]').value), allowsDecimal);
+        const ready = normalizeNumber(toNumber(row.querySelector('[data-field="ready"]').value), allowsDecimal);
+        const exchange = normalizeNumber(toNumber(row.querySelector('[data-field="exchange"]').value), allowsDecimal);
+        const inHand = normalizeNumber(stock - sale + cancelled, allowsDecimal);
         const remainingInput = row.querySelector('[data-field="remaining"]');
         const baseRemaining = toNumber(remainingInput.dataset.baseRemaining || remainingInput.value);
-        const remaining = remainingInput.type === "hidden" && {{ ready_adds_to_remaining|yesno:"true,false" }} ? baseRemaining + ready : toNumber(remainingInput.value);
-        const diffMinus = Math.max(remaining - inHand, 0);
-        const diffPlus = Math.max(inHand - remaining, 0);
+        const remainingRaw = remainingInput.type === "hidden" && {{ ready_adds_to_remaining|yesno:"true,false" }} ? baseRemaining + ready : toNumber(remainingInput.value);
+        const remaining = normalizeNumber(remainingRaw, allowsDecimal);
+        const diffMinus = normalizeNumber(Math.max(remaining - inHand, 0), allowsDecimal);
+        const diffPlus = normalizeNumber(Math.max(inHand - remaining, 0), allowsDecimal);
 
         const stockOutput = row.querySelector('[data-output="stock"]');
         const stockInput = row.querySelector('[data-field="stock"]');
         const inHandOutput = row.querySelector('[data-output="in-hand"]');
         const inHandInput = row.querySelector('[data-field="in-hand"]');
         stockOutput.textContent = formatNumber(stock);
-        stockInput.value = stock.toFixed(2);
+        stockInput.value = allowsDecimal ? stock.toFixed(2) : String(stock);
         const remainingOutput = row.querySelector('[data-output="remaining"]');
         if (remainingOutput) {
             remainingOutput.textContent = formatNumber(remaining);
         }
-        remainingInput.value = remaining.toFixed(2);
+        if (remainingInput.type === "hidden") {
+            remainingInput.value = allowsDecimal ? remaining.toFixed(2) : String(remaining);
+        }
         row.querySelector('[data-output="diff-plus"]').textContent = formatNumber(diffPlus);
         row.querySelector('[data-output="diff-minus"]').textContent = formatNumber(diffMinus);
         inHandOutput.textContent = formatNumber(inHand);
-        inHandInput.value = inHand.toFixed(2);
+        inHandInput.value = allowsDecimal ? inHand.toFixed(2) : String(inHand);
     };
 
     rows.forEach((row) => {

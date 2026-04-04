@@ -1,4 +1,4 @@
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from datetime import date
 
 from django.shortcuts import get_object_or_404
@@ -7,6 +7,7 @@ from django.utils.dateparse import parse_date
 from stocks.models import Branch, DEFAULT_ITEM_NAMES, DailyStock, Item, StockEntry
 
 STOCK_BRANCH_NAMES = ["Barki Road", "Bediyan Road"]
+FRACTIONAL_STOCK_ITEMS = {"Kabab", "Tikka", "Malai Boti", "Chargha"}
 
 
 def coerce_int(value):
@@ -21,6 +22,17 @@ def coerce_decimal(value):
         return max(Decimal(str(value)), Decimal("0"))
     except (InvalidOperation, TypeError, ValueError):
         return Decimal("0")
+
+
+def item_allows_decimal(item_name):
+    return item_name in FRACTIONAL_STOCK_ITEMS
+
+
+def normalize_stock_value(value, item_name):
+    parsed = coerce_decimal(value)
+    if item_allows_decimal(item_name):
+        return parsed.quantize(Decimal("0.01"))
+    return parsed.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
 
 
 def ensure_seed_data():
@@ -63,13 +75,17 @@ def resolve_sheet(branch_id=None, raw_date=None, branch_queryset=None, default_b
     if missing_entries:
         StockEntry.objects.bulk_create(missing_entries)
 
+    entries = list(daily_stock.entries.select_related("item").order_by("item_id"))
+    for entry in entries:
+        entry.allows_decimal = item_allows_decimal(entry.item.name)
+
     return {
         "branches": branches,
         "branch": branch,
         "selected_date": selected_date,
         "daily_stock": daily_stock,
         "daily_stock_created": daily_stock_created,
-        "entries": list(daily_stock.entries.select_related("item").order_by("item_id")),
+        "entries": entries,
         "recent_sheets": list(DailyStock.objects.select_related("branch").order_by("-date", "branch__name")[:20]),
         "totals": {
             "total_orders": daily_stock.total_orders,
