@@ -24,6 +24,13 @@ def parse_non_negative_decimal(value):
     return max(parsed, Decimal("0"))
 
 
+def parse_decimal(value):
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return Decimal("0")
+
+
 def parse_optional_int(value):
     try:
         return int(value) if value else None
@@ -200,7 +207,7 @@ def owner_balance_view(request):
         if balance_branch_id:
             balance_summaries = balance_summaries.filter(branch_id=balance_branch_id)
         for summary in balance_summaries:
-            total_balance += parse_non_negative_decimal(summary.balance)
+            total_balance += parse_decimal(summary.balance)
 
     if chicken_from and chicken_to:
         chicken_summaries = (
