@@ -1,8 +1,8 @@
-
 import os
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
 import dj_database_url
+from .env import load_env_file
 
 # ========================
 # BASE SETUP
@@ -10,6 +10,9 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 TEMPLATE_DIR = BASE_DIR / "templates"
 STATIC_DIR = BASE_DIR / "static"
+
+# Load environment variables from .env file
+load_env_file(BASE_DIR / ".env")
 
 # ========================
 # ENVIRONMENT VARIABLES
@@ -32,14 +35,22 @@ if not SECRET_KEY:
 # ========================
 # ALLOWED HOSTS
 # ========================
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
 
+raw_hosts = os.getenv("DJANGO_ALLOWED_HOSTS", "")
+
+if raw_hosts:
+    ALLOWED_HOSTS = [host.strip() for host in raw_hosts.split(",") if host.strip()]
+else:
+    ALLOWED_HOSTS = []
+
+# Add Render hostname automatically (production)
 render_host = os.getenv("RENDER_EXTERNAL_HOSTNAME")
 if render_host:
     ALLOWED_HOSTS.append(render_host)
 
-if not ALLOWED_HOSTS:
-    ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+# Local development fallback
+if DEBUG:
+    ALLOWED_HOSTS += ["127.0.0.1", "localhost"]
 
 # ========================
 # APPLICATIONS
@@ -111,8 +122,12 @@ if DATABASE_URL:
 else:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'stocksheet_db',
+            'USER': 'postgres',
+            'PASSWORD': '123',
+            'HOST': 'localhost',
+            'PORT': '5432',
         }
     }
 

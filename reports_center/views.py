@@ -2,7 +2,8 @@ from django.shortcuts import render
 from django.utils.dateparse import parse_date
 
 from stock_control.sheet_logic import ensure_seed_data
-from stocks.models import Branch, DailyStock, StockSheet
+from user_access.access import get_accessible_branches
+from stocks.models import DailyStock, StockSheet
 from user_access.constants import REPORT_ROLE
 from user_access.permissions import role_required
 
@@ -10,7 +11,7 @@ from user_access.permissions import role_required
 @role_required(REPORT_ROLE)
 def reports_dashboard_view(request):
     ensure_seed_data()
-    branches = Branch.objects.order_by("name")
+    branches = get_accessible_branches(request.user)
     selected_branch_id = request.GET.get("branch")
     selected_date_raw = request.GET.get("date", "").strip()
     selected_date = parse_date(selected_date_raw) if selected_date_raw else None

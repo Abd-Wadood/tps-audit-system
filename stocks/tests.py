@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 from django.contrib.auth.models import Group, User
 from django.test import TestCase
@@ -128,6 +129,37 @@ class StockSheetTests(TestCase):
         self.assertEqual(first_entry.remaining_value, 0)
         self.assertEqual(first_entry.stock, 0)
         self.assertEqual(first_entry.in_hand, 0)
+
+    def test_stock_sheet_accepts_decimal_values(self):
+        self.client.force_login(self.user)
+        context = resolve_sheet(branch_id=1, raw_date="2026-03-25")
+        first_entry = context["entries"][0]
+
+        response = self.client.post(
+            reverse("stock_control:stock_sheet"),
+            {
+                "branch": "1",
+                "date": "2026-03-25",
+                "total_orders": "10",
+                "shop_orders": "5",
+                "food_panda_orders": "5",
+                f"opening_{first_entry.id}": "1.50",
+                f"received_{first_entry.id}": "2.25",
+                f"sale_{first_entry.id}": "1.00",
+                f"exchange_{first_entry.id}": "0.50",
+                f"remaining_{first_entry.id}": "2.75",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        first_entry.refresh_from_db()
+        self.assertEqual(first_entry.opening, Decimal("1.50"))
+        self.assertEqual(first_entry.received, Decimal("2.25"))
+        self.assertEqual(first_entry.stock, Decimal("3.75"))
+        self.assertEqual(first_entry.sale, Decimal("1.00"))
+        self.assertEqual(first_entry.exchange, Decimal("0.50"))
+        self.assertEqual(first_entry.remaining_value, Decimal("2.75"))
+        self.assertEqual(first_entry.in_hand, Decimal("2.75"))
 
     def test_stock_user_login_redirects_to_assigned_branch(self):
         user = User.objects.create_user(username="stocker", password="testpass123")
