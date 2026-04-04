@@ -48,11 +48,14 @@ def _build_daily_stock_pdf(daily_stock, entries, totals, buffer):
         "Ready",
         "InHand Stock",
         "Remaining",
-        "Diff (+)",
         "Diff (-)",
+        "Diff (+)",
     ]]
 
     for index, entry in enumerate(entries, start=1):
+        pdf_in_hand = entry.stock - entry.sale + entry.cancelled
+        pdf_diff_plus = max(pdf_in_hand - entry.remaining, 0)
+        pdf_diff_minus = max(entry.remaining - pdf_in_hand, 0)
         rows.append(
             [
                 str(index),
@@ -64,10 +67,10 @@ def _build_daily_stock_pdf(daily_stock, entries, totals, buffer):
                 str(entry.cancelled),
                 str(entry.exchange),
                 str(entry.ready),
-                str(entry.in_hand),
+                str(pdf_in_hand),
                 str(entry.remaining),
-                str(entry.diff_plus),
-                str(entry.diff_minus),
+                str(pdf_diff_plus),
+                str(pdf_diff_minus),
             ]
         )
 

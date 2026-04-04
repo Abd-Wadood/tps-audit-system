@@ -335,6 +335,7 @@ function updateAllTotals() {
     const totalMarketPurchase = getSectionTotal("market");
     const counterSale = toNumber(document.querySelector('[name="counter_counter_sale"]').value);
     const directSale = toNumber(document.querySelector('[name="counter_direct_sale"]').value);
+    const credit = toNumber(document.querySelector('[name="counter_credit"]').value);
 
     const loan = toNumber(document.querySelector('[name="total_loan"]').value);
     const extraFee = toNumber(document.querySelector('[name="total_extra_fee"]').value);
@@ -345,7 +346,7 @@ function updateAllTotals() {
     const customTotalAdjustments = sectionCustomRows.total.reduce((sum, row) => sum + toNumber(row.value), 0);
 
     const adjustmentTotal = loan + extraFee + totalWage + counterPurchase + customTotalAdjustments + discount;
-    const totalSale = counterSale + directSale;
+    const totalSale = counterSale + directSale + credit;
     const totalPurchase = totalLocalPurchase + totalMarketPurchase + adjustmentTotal;
     const difference = counterSale - systemSale;
     const balance = totalSale - totalPurchase;
@@ -354,7 +355,7 @@ function updateAllTotals() {
         system_sale: systemSale,
         total_local_purchase: totalLocalPurchase,
         total_market_purchase: totalMarketPurchase,
-        counter_sale_total: counterSale,
+        counter_sale_total: totalSale,
         counter_sale: counterSale,
         total_sale: totalSale,
         total_purchase: totalPurchase,

@@ -87,8 +87,8 @@
                         <th>Ready</th>
                         <th>InHand Stock</th>
                         <th>Remaining</th>
-                        <th>Diff (+)</th>
                         <th>Diff (-)</th>
+                        <th>Diff (+)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -191,7 +191,7 @@
         const cancelled = toInt(row.querySelector('[data-field="cancelled"]').value);
         const ready = toInt(row.querySelector('[data-field="ready"]').value);
         const exchange = toInt(row.querySelector('[data-field="exchange"]').value);
-        const inHand = stock - sale;
+        const inHand = stock - sale + cancelled;
         const remaining = toInt(row.querySelector('[data-field="remaining"]').value);
         const diffMinus = Math.max(remaining - inHand, 0);
         const diffPlus = Math.max(inHand - remaining, 0);

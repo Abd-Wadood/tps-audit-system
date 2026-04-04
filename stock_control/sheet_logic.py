@@ -35,11 +35,15 @@ def parse_selected_date(raw_date):
     return parsed_date
 
 
-def resolve_sheet(branch_id=None, raw_date=None):
+def resolve_sheet(branch_id=None, raw_date=None, branch_queryset=None, default_branch_id=None):
     ensure_seed_data()
 
-    branches = Branch.objects.order_by("name")
-    branch = branches.filter(pk=branch_id).first() if branch_id else branches.first()
+    branches = branch_queryset if branch_queryset is not None else Branch.objects.order_by("name")
+    branch = branches.filter(pk=branch_id).first() if branch_id else None
+    if branch is None and default_branch_id:
+        branch = branches.filter(pk=default_branch_id).first()
+    if branch is None:
+        branch = branches.first()
     if branch is None:
         branch = get_object_or_404(Branch, name=STOCK_BRANCH_NAMES[0])
     selected_date = parse_selected_date(raw_date)

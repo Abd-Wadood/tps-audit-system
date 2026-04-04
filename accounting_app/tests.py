@@ -5,6 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from user_access.constants import ACCOUNTING_ROLE
+from user_access.models import UserWorkspace
 from stocks.models import Branch, DailyStock, StockSheet
 
 
@@ -245,6 +246,44 @@ class AccountingSummaryFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(User.objects.filter(username="weak-user").exists())
         self.assertContains(response, "This password is too short")
+
+    def test_owner_can_create_user_with_branch_assignment(self):
+        response = self.client.post(
+            reverse("user_access:user_management"),
+            {
+                "action": "create_user",
+                "first_name": "Branch",
+                "last_name": "User",
+                "username": "branch-user",
+                "email": "branch@example.com",
+                "role": ACCOUNTING_ROLE,
+                "branch": str(self.branch.pk),
+                "password": "StrongPass123!",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        created_user = User.objects.get(username="branch-user")
+        self.assertEqual(created_user.workspace.branch, self.branch)
+
+    def test_owner_can_create_user_with_all_branches_access(self):
+        response = self.client.post(
+            reverse("user_access:user_management"),
+            {
+                "action": "create_user",
+                "first_name": "All",
+                "last_name": "Branches",
+                "username": "all-branches-user",
+                "email": "all@example.com",
+                "role": ACCOUNTING_ROLE,
+                "branch": "",
+                "password": "StrongPass123!",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        created_user = User.objects.get(username="all-branches-user")
+        self.assertIsNone(created_user.workspace.branch)
 
     def test_negative_accounting_inputs_are_clamped_to_zero(self):
         response = self.client.post(

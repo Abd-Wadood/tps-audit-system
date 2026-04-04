@@ -7,9 +7,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.dateparse import parse_date
 
+from stock_control.sheet_logic import ensure_seed_data
 from stocks.models import Branch, StockSheet
 from .constants import ACCOUNTING_ROLE, REPORT_ROLE, STOCK_ROLE
 from .forms import OwnerUserCreateForm, OwnerUserRoleForm, SignInForm
+from .models import UserWorkspace
 from .permissions import role_flags
 
 
@@ -28,6 +30,27 @@ def parse_optional_int(value):
         return None
 
 
+def get_user_branch(user):
+    workspace = getattr(user, "workspace", None)
+    if not workspace:
+        return None
+    return workspace.branch
+
+
+def get_user_branch_id(user):
+    branch = get_user_branch(user)
+    return branch.pk if branch else None
+
+
+def get_branch_aware_url(view_name, user):
+    branch_id = get_user_branch_id(user)
+    url = reverse(view_name)
+    if branch_id:
+        separator = "&" if "?" in url else "?"
+        return f"{url}{separator}branch={branch_id}"
+    return url
+
+
 class WorkspaceLoginView(LoginView):
     template_name = "user_access/login.html"
     authentication_form = SignInForm
@@ -39,9 +62,9 @@ class WorkspaceLoginView(LoginView):
         if flags["is_report_user"]:
             return reverse("reports_center:dashboard")
         if flags["is_stock_user"] and not flags["is_accounting_user"]:
-            return reverse("stock_control:stock_sheet")
+            return get_branch_aware_url("stock_control:stock_sheet", self.request.user)
         if flags["is_accounting_user"] and not flags["is_stock_user"]:
-            return reverse("accounting_app:summary_create")
+            return get_branch_aware_url("accounting_app:summary_create", self.request.user)
         return reverse("user_access:workspace_home")
 
 def signup_view(request):
@@ -59,9 +82,9 @@ def workspace_home(request):
     )
     if not flags["is_superuser"] and role_count == 1:
         if flags["is_stock_user"]:
-            return redirect("stock_control:stock_sheet")
+            return redirect(get_branch_aware_url("stock_control:stock_sheet", request.user))
         if flags["is_accounting_user"]:
-            return redirect("accounting_app:summary_create")
+            return redirect(get_branch_aware_url("accounting_app:summary_create", request.user))
         if flags["is_report_user"]:
             return redirect("reports_center:dashboard")
 
@@ -81,6 +104,7 @@ def owner_user_management_view(request):
     if not request.user.is_superuser:
         return redirect("user_access:workspace_home")
 
+    ensure_seed_data()
     create_form = OwnerUserCreateForm()
     if request.method == "POST":
         action = request.POST.get("action")
@@ -88,11 +112,13 @@ def owner_user_management_view(request):
             create_form = OwnerUserCreateForm(request.POST)
             if create_form.is_valid():
                 role = create_form.cleaned_data.pop("role")
+                branch = create_form.cleaned_data.pop("branch")
                 password = create_form.cleaned_data.pop("password")
                 user = User.objects.create(**create_form.cleaned_data, is_active=True)
                 user.set_password(password)
                 user.save()
                 user.groups.set([Group.objects.get(name=role)])
+                UserWorkspace.objects.update_or_create(user=user, defaults={"branch": branch})
                 messages.success(request, f"User {user.username} created successfully.")
                 return redirect("user_access:user_management")
         elif action == "update_role":
@@ -103,6 +129,10 @@ def owner_user_management_view(request):
                     messages.info(request, "Owner/Admin roles stay managed by the system.")
                 else:
                     managed_user.groups.set([Group.objects.get(name=role_form.cleaned_data["role"])])
+                    UserWorkspace.objects.update_or_create(
+                        user=managed_user,
+                        defaults={"branch": role_form.cleaned_data["branch"]},
+                    )
                     messages.success(request, f"Updated role for {managed_user.username}.")
                 return redirect("user_access:user_management")
         elif action == "delete_user":
@@ -115,14 +145,20 @@ def owner_user_management_view(request):
                 messages.success(request, f"Deleted user {username}.")
             return redirect("user_access:user_management")
 
-    managed_users = User.objects.order_by("username")
+    managed_users = User.objects.select_related("workspace__branch").order_by("username")
     user_role_forms = []
     for managed_user in managed_users:
         initial_role = managed_user.groups.values_list("name", flat=True).first() or STOCK_ROLE
         user_role_forms.append(
             {
                 "managed_user": managed_user,
-                "form": OwnerUserRoleForm(initial={"user_id": managed_user.id, "role": initial_role}),
+                "form": OwnerUserRoleForm(
+                    initial={
+                        "user_id": managed_user.id,
+                        "role": initial_role,
+                        "branch": get_user_branch_id(managed_user),
+                    }
+                ),
             }
         )
 

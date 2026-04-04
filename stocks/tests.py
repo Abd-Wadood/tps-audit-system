@@ -1,12 +1,14 @@
 from datetime import date
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.test import TestCase
 from django.urls import reverse
 
 from .accounting import calculate_totals
 from .models import Branch, DailyStock, StockSheet
 from stock_control.sheet_logic import resolve_sheet
+from user_access.constants import STOCK_ROLE
+from user_access.models import UserWorkspace
 
 
 class StockSheetTests(TestCase):
@@ -126,5 +128,30 @@ class StockSheetTests(TestCase):
         self.assertEqual(first_entry.remaining_value, 0)
         self.assertEqual(first_entry.stock, 0)
         self.assertEqual(first_entry.in_hand, 0)
+
+    def test_stock_user_login_redirects_to_assigned_branch(self):
+        user = User.objects.create_user(username="stocker", password="testpass123")
+        stock_group, _ = Group.objects.get_or_create(name=STOCK_ROLE)
+        user.groups.add(stock_group)
+        assigned_branch = Branch.objects.create(name="Township")
+        UserWorkspace.objects.create(user=user, branch=assigned_branch)
+
+        response = self.client.post(reverse("login"), {"username": "stocker", "password": "testpass123"})
+
+        self.assertRedirects(response, f"{reverse('stock_control:stock_sheet')}?branch={assigned_branch.pk}")
+
+    def test_stock_user_cannot_switch_to_another_branch_sheet(self):
+        user = User.objects.create_user(username="stocker2", password="testpass123")
+        stock_group, _ = Group.objects.get_or_create(name=STOCK_ROLE)
+        user.groups.add(stock_group)
+        assigned_branch = Branch.objects.create(name="Township")
+        other_branch = Branch.objects.create(name="Bahria")
+        UserWorkspace.objects.create(user=user, branch=assigned_branch)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("stock_control:stock_sheet"), {"branch": other_branch.pk, "date": "2026-03-22"})
+
+        self.assertEqual(response.context["branch"].pk, assigned_branch.pk)
+        self.assertTrue(all(branch.pk == assigned_branch.pk for branch in response.context["branches"]))
 
 # Create your tests here.

@@ -10,15 +10,16 @@ from django.utils import timezone
 from stock_control.sheet_logic import coerce_int, ensure_seed_data, parse_selected_date, resolve_sheet
 from stocks.models import Branch, StockSheet
 from stocks.pdf import build_stock_sheet_pdf
+from user_access.views import get_user_branch_id
 from user_access.constants import ACCOUNTING_ROLE, REPORT_ROLE
 from user_access.permissions import role_required
 
 from .account_summary_calculations import SECTION_CONFIG, calculate_totals, extract_section, parse_decimal
 
 
-def get_accounting_branch_options(selected_branch_id=None):
+def get_accounting_branch_options(selected_branch_id=None, branch_queryset=None):
     ensure_seed_data()
-    branches = Branch.objects.order_by("name")
+    branches = branch_queryset if branch_queryset is not None else Branch.objects.order_by("name")
     selected_branch = branches.filter(pk=selected_branch_id).first() or branches.first()
     return branches, selected_branch
 
@@ -105,7 +106,10 @@ def summary_list_view(request):
 
 @role_required(ACCOUNTING_ROLE)
 def summary_create_view(request):
-    branches, selected_branch = get_accounting_branch_options(request.POST.get("branch") or request.GET.get("branch"))
+    assigned_branch_id = None if request.user.is_superuser else get_user_branch_id(request.user)
+    selected_branch_id = assigned_branch_id or request.POST.get("branch") or request.GET.get("branch")
+    branch_queryset = Branch.objects.filter(pk=assigned_branch_id) if assigned_branch_id else None
+    branches, selected_branch = get_accounting_branch_options(selected_branch_id, branch_queryset=branch_queryset)
     selected_date = parse_selected_date(request.POST.get("sheet_date") or request.GET.get("sheet_date"))
     existing_sheet = get_existing_summary(selected_branch, selected_date)
 
@@ -193,8 +197,15 @@ def summary_pdf_view(request, pk):
 
 @role_required(ACCOUNTING_ROLE, REPORT_ROLE)
 def stock_review_view(request):
+    assigned_branch_id = None if request.user.is_superuser else get_user_branch_id(request.user)
+    branch_queryset = Branch.objects.filter(pk=assigned_branch_id) if assigned_branch_id else None
     if request.method == "POST":
-        context = resolve_sheet(request.POST.get("branch"), request.POST.get("date"))
+        context = resolve_sheet(
+            request.POST.get("branch"),
+            request.POST.get("date"),
+            branch_queryset=branch_queryset,
+            default_branch_id=assigned_branch_id,
+        )
         entries_by_id = {entry.id: entry for entry in context["entries"]}
         was_existing_record = not context["daily_stock_created"]
 
@@ -218,7 +229,12 @@ def stock_review_view(request):
         messages.success(request, "Stock sheet finalized for PDF generation.")
         return redirect(f"{request.path}?branch={context['branch'].pk}&date={context['selected_date'].isoformat()}")
 
-    context = resolve_sheet(request.GET.get("branch"), request.GET.get("date"))
+    context = resolve_sheet(
+        request.GET.get("branch"),
+        request.GET.get("date"),
+        branch_queryset=branch_queryset,
+        default_branch_id=assigned_branch_id,
+    )
     context.update(
         {
             "page_title": "Accounting Stock Review",
