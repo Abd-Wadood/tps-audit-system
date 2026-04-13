@@ -74,23 +74,6 @@ def _build_daily_stock_pdf(daily_stock, entries, totals, buffer):
             ]
         )
 
-    rows.append(
-        [
-            "",
-            "Totals",
-            "",
-            "",
-            "",
-            str(totals["total_orders"]),
-            "",
-            "",
-            str(totals["shop_orders"]),
-            "",
-            "",
-            "",
-            "",
-        ]
-    )
 
     summary_rows = [
         ["Total Orders", str(totals["total_orders"])],
