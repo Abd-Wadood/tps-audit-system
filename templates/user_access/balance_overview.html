@@ -10,7 +10,7 @@
 </section>
 
 {% if overall_summary_count == 0 %}
-<section class="card">
+<section class="card" id="balance-section">
     <p class="eyebrow">No Saved Accounting Data</p>
     <h2>Balance overview is empty because no account summaries have been saved yet</h2>
     <p class="lead">Create and save an account summary first. After that, Balance, Chicken, Food Panda, and Sheikh Bill totals will appear for the selected branch and date range.</p>
@@ -24,7 +24,7 @@
             <h2>Total Balance By Date Range</h2>
         </div>
     </div>
-    <form method="get" class="form-grid">
+    <form method="get" action="{% url 'user_access:balance_overview' %}#balance-section" class="form-grid">
         <div>
             <label for="balance_branch">Branch</label>
             <select id="balance_branch" name="balance_branch">
@@ -94,14 +94,14 @@
     {% endif %}
 </section>
 
-<section class="card">
+<section class="card" id="chicken-section">
     <div class="section-head">
         <div>
             <p class="eyebrow">Market Purchase</p>
             <h2>Chicken Total By Date Range</h2>
         </div>
     </div>
-    <form method="get" class="form-grid">
+    <form method="get" action="{% url 'user_access:balance_overview' %}#chicken-section" class="form-grid">
         <div>
             <label for="chicken_branch">Branch</label>
             <select id="chicken_branch" name="chicken_branch">
@@ -138,14 +138,14 @@
     </div>
 </section>
 
-<section class="card">
+<section class="card" id="food-panda-section">
     <div class="section-head">
         <div>
             <p class="eyebrow">Total Summary</p>
             <h2>Food Panda Total By Date Range</h2>
         </div>
     </div>
-    <form method="get" class="form-grid">
+    <form method="get" action="{% url 'user_access:balance_overview' %}#food-panda-section" class="form-grid">
         <div>
             <label for="food_panda_branch">Branch</label>
             <select id="food_panda_branch" name="food_panda_branch">
@@ -182,14 +182,14 @@
     </div>
 </section>
 
-<section class="card">
+<section class="card" id="sheikh-bill-section">
     <div class="section-head">
         <div>
             <p class="eyebrow">Market Purchase</p>
             <h2>Sheikh Bill Total By Date Range</h2>
         </div>
     </div>
-    <form method="get" class="form-grid">
+    <form method="get" action="{% url 'user_access:balance_overview' %}#sheikh-bill-section" class="form-grid">
         <div>
             <label for="sheikh_bill_branch">Branch</label>
             <select id="sheikh_bill_branch" name="sheikh_bill_branch">
@@ -225,4 +225,21 @@
         </article>
     </div>
 </section>
+
+<script>
+(() => {
+    if (!window.location.hash) {
+        return;
+    }
+
+    const target = document.querySelector(window.location.hash);
+    if (!target) {
+        return;
+    }
+
+    requestAnimationFrame(() => {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+})();
+</script>
 {% endblock %}

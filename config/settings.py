@@ -180,6 +180,8 @@ WHITENOISE_AUTOREFRESH = DEBUG
 LOGIN_REDIRECT_URL = "user_access:workspace_home"
 LOGOUT_REDIRECT_URL = "login"
 LOGIN_URL = "login"
+SESSION_COOKIE_AGE = 60 * 60 * 24
+SESSION_SAVE_EVERY_REQUEST = True
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

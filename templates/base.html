@@ -6,11 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Daily Stock Control System{% endblock %}</title>
     <link rel="icon" type="image/png" href="{% static 'css/images/LOGO_1.png' %}">
-    <link rel="stylesheet" href="{% static 'css/app.css' %}?v=black-red-navy">
+    <link rel="stylesheet" href="{% static 'css/app.css' %}?v=sidebar-default-closed">
 </head>
-<body class="{% block body_class %}{% endblock %}">
+<body class="{% block body_class %}{% endblock %}{% if request.user.is_authenticated %} sidebar-collapsed{% endif %}">
     <div class="page-shell">
-        <aside class="sidebar">
+        <aside class="sidebar" id="app-sidebar">
             <a class="brand" href="{% url 'user_access:workspace_home' %}">
                 <span class="brand-mark">SS</span>
                 <span>
@@ -49,6 +49,23 @@
             {% endif %}
         </aside>
         <main class="main-content">
+            {% if request.user.is_authenticated %}
+            <div class="shell-toolbar">
+                <button
+                    type="button"
+                    class="sidebar-toggle"
+                    data-sidebar-toggle
+                    aria-expanded="true"
+                    aria-controls="app-sidebar"
+                    aria-label="Toggle sidebar"
+                    title="Toggle sidebar"
+                >
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            {% endif %}
             {% if messages %}
                 <div class="messages">
                     {% for message in messages %}
@@ -59,5 +76,31 @@
             {% block content %}{% endblock %}
         </main>
     </div>
+    {% if request.user.is_authenticated %}
+    <script>
+    (() => {
+        const body = document.body;
+        const toggle = document.querySelector("[data-sidebar-toggle]");
+
+        if (!toggle || body.classList.contains("auth-page")) {
+            return;
+        }
+
+        const applyState = (collapsed) => {
+            body.classList.toggle("sidebar-collapsed", collapsed);
+            toggle.setAttribute("aria-expanded", String(!collapsed));
+            toggle.setAttribute("aria-label", collapsed ? "Open sidebar" : "Close sidebar");
+            toggle.setAttribute("title", collapsed ? "Open sidebar" : "Close sidebar");
+        };
+
+        applyState(body.classList.contains("sidebar-collapsed"));
+
+        toggle.addEventListener("click", () => {
+            const collapsed = !body.classList.contains("sidebar-collapsed");
+            applyState(collapsed);
+        });
+    })();
+    </script>
+    {% endif %}
 </body>
 </html>

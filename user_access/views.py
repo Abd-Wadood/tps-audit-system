@@ -42,6 +42,11 @@ class WorkspaceLoginView(LoginView):
     template_name = "user_access/login.html"
     authentication_form = SignInForm
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        self.request.session.set_expiry(60 * 60 * 24)
+        return response
+
     def get_success_url(self):
         flags = role_flags(self.request.user)
         if flags["is_superuser"]:
