@@ -642,6 +642,85 @@ h2 {
     margin: 1.5rem 0;
 }
 
+.sales-graph-shell {
+    margin-top: 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background: #131620;
+    overflow: hidden;
+}
+
+.sales-graph-header {
+    padding: 1rem 1rem 0;
+}
+
+.sales-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+}
+
+.sales-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #d5dae8;
+    font-size: 0.92rem;
+}
+
+.sales-legend-pill {
+    padding: 0.55rem 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.sales-legend-pill strong {
+    color: #ffffff;
+    font-size: 0.96rem;
+}
+
+.sales-legend i {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    display: inline-block;
+}
+
+.sales-legend-dot-pizza_dough {
+    background: #d96f4a;
+}
+
+.sales-legend-dot-tortia_wrap {
+    background: #d7a94b;
+}
+
+.sales-legend-dot-paratha_roll {
+    background: #7db36e;
+}
+
+.sales-legend-dot-chicken_fillet_burger {
+    background: #4aa7a2;
+}
+
+.sales-legend-dot-chicken_piece {
+    background: #4f86d9;
+}
+
+.sales-legend-dot-chicken_wings {
+    background: #9a67d1;
+}
+
+.sales-chart-scroll {
+    overflow-x: auto;
+    padding: 0.5rem 0.5rem 0.9rem;
+}
+
+.sales-chart {
+    display: block;
+    min-width: 100%;
+}
+
 .stat-card span {
     color: var(--muted);
     display: block;
@@ -872,7 +951,8 @@ h2 {
 
     .summary-cards,
     .stats-grid,
-    .workspace-grid {
+    .workspace-grid,
+    .form-grid {
         grid-template-columns: 1fr;
     }
 
@@ -920,5 +1000,10 @@ h2 {
 
     .sheet-actions {
         justify-content: stretch;
+    }
+
+    .sales-legend {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }

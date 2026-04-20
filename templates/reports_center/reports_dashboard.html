@@ -10,7 +10,7 @@
 </section>
 
 <section class="card form-grid">
-    <h2>Find Reports</h2>
+    <h2>{% if graph_only_view %}Select Dates To Generate Graph{% else %}Find Reports{% endif %}</h2>
     <form method="get" class="toolbar-form">
         <div>
             <label for="report_branch">Branch</label>
@@ -21,19 +21,38 @@
                 {% endfor %}
             </select>
         </div>
+        {% if not graph_only_view %}
         <div>
             <label for="report_date">Date</label>
             <input id="report_date" name="date" type="date" value="{{ selected_date }}">
         </div>
+        {% endif %}
+        <div>
+            <label for="report_date_from">From</label>
+            <input id="report_date_from" name="date_from" type="date" value="{{ selected_date_from }}">
+        </div>
+        <div>
+            <label for="report_date_to">To</label>
+            <input id="report_date_to" name="date_to" type="date" value="{{ selected_date_to }}">
+        </div>
         <div class="toolbar-submit">
-            <button type="submit" class="primary-button">Search Reports</button>
+            <button type="submit" class="primary-button">{% if graph_only_view %}Generate Graph{% else %}Search Reports{% endif %}</button>
         </div>
     </form>
     {% if default_window_active %}
-    <p class="lead">Showing reports from the last 10 days only: {{ default_window_start }} to {{ default_window_end }}. Search by date to view older reports.</p>
+    <p class="lead">
+        {% if graph_only_view %}
+        Showing graph data from the last 10 days only: {{ default_window_start }} to {{ default_window_end }}.
+        {% else %}
+        Showing reports from the last 10 days only: {{ default_window_start }} to {{ default_window_end }}. Search by date to view older reports.
+        {% endif %}
+    </p>
+    {% else %}
+    <p class="lead">Showing {% if graph_only_view %}graph{% else %}report{% endif %} data from {{ report_window_start }} to {{ report_window_end }}.</p>
     {% endif %}
 </section>
 
+{% if not graph_only_view %}
 <section class="stats-grid">
     <article class="stat-card">
         <span>Daily Stock Reports</span>
@@ -48,7 +67,36 @@
         <strong>{{ total_daily_reports|add:total_account_reports }}</strong>
     </article>
 </section>
+{% endif %}
 
+<section id="sales-graphs" class="card">
+    <div class="section-head">
+        <div>
+            <p class="eyebrow">Sales Graph</p>
+            <h2>Daily item sales graph</h2>
+        </div>
+    </div>
+
+    {% if sales_graph.has_data %}
+    {{ sales_graph|json_script:"sales-graph-data" }}
+    <div class="sales-graph-shell">
+        <div class="sales-graph-header">
+            <div class="sales-legend">
+                {% for category in sales_graph.categories %}
+                <span class="sales-legend-pill"><i class="sales-legend-dot sales-legend-dot-{{ category.key }}"></i>{{ category.label }} <strong>{{ category.total|floatformat:2 }}</strong></span>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="sales-chart-scroll">
+            <svg class="sales-chart" data-sales-chart role="img" aria-label="Daily grouped sales graph"></svg>
+        </div>
+    </div>
+    {% else %}
+    <p class="lead">No item sale data is available for this filter yet.</p>
+    {% endif %}
+</section>
+
+{% if not graph_only_view %}
 <section class="card">
     <div class="section-head">
         <div>
@@ -85,7 +133,9 @@
         </table>
     </div>
 </section>
+{% endif %}
 
+{% if not graph_only_view %}
 <section class="card">
     <div class="section-head">
         <div>
@@ -124,4 +174,193 @@
         </table>
     </div>
 </section>
+{% endif %}
+
+{% if sales_graph.has_data %}
+<script>
+(() => {
+    const chartElement = document.querySelector("[data-sales-chart]");
+    const dataElement = document.getElementById("sales-graph-data");
+
+    if (!chartElement || !dataElement) {
+        return;
+    }
+
+    const graphData = JSON.parse(dataElement.textContent);
+    const days = graphData.days || [];
+    const categories = graphData.categories || [];
+
+    if (!days.length || !categories.length) {
+        return;
+    }
+
+    const chartHeight = 460;
+    const chartPadding = { top: 34, right: 36, bottom: 118, left: 78 };
+    const minGroupWidth = days.length === 1 ? 360 : 142;
+    const groupWidth = minGroupWidth;
+    const barGap = 8;
+    const barsPerGroup = categories.length;
+    const barWidth = Math.max(10, Math.floor((groupWidth - (barGap * (barsPerGroup - 1))) / barsPerGroup));
+    const chartWidth = chartPadding.left + chartPadding.right + (days.length * groupWidth);
+    const plotHeight = chartHeight - chartPadding.top - chartPadding.bottom;
+    const rawMaxValue = Math.max(...days.flatMap((day) => day.values), 0);
+    const maxValue = rawMaxValue > 0 ? rawMaxValue : 5;
+
+    chartElement.setAttribute("viewBox", `0 0 ${chartWidth} ${chartHeight}`);
+    chartElement.setAttribute("width", String(chartWidth));
+    chartElement.setAttribute("height", String(chartHeight));
+
+    const makeNode = (name, attributes = {}) => {
+        const node = document.createElementNS("http://www.w3.org/2000/svg", name);
+        Object.entries(attributes).forEach(([key, value]) => node.setAttribute(key, value));
+        return node;
+    };
+
+    const tickCount = 7;
+    const xAxisY = chartPadding.top + plotHeight;
+    const yAxisX = chartPadding.left;
+
+    chartElement.appendChild(makeNode("line", {
+        x1: yAxisX,
+        y1: chartPadding.top - 12,
+        x2: yAxisX,
+        y2: xAxisY,
+        stroke: "#e7eaf3",
+        "stroke-width": "2.5",
+    }));
+    chartElement.appendChild(makeNode("line", {
+        x1: yAxisX,
+        y1: xAxisY,
+        x2: chartWidth - chartPadding.right + 12,
+        y2: xAxisY,
+        stroke: "#e7eaf3",
+        "stroke-width": "2.5",
+    }));
+    chartElement.appendChild(makeNode("polygon", {
+        points: `${yAxisX},${chartPadding.top - 22} ${yAxisX - 6},${chartPadding.top - 10} ${yAxisX + 6},${chartPadding.top - 10}`,
+        fill: "#e7eaf3",
+    }));
+    chartElement.appendChild(makeNode("polygon", {
+        points: `${chartWidth - chartPadding.right + 22},${xAxisY} ${chartWidth - chartPadding.right + 10},${xAxisY - 6} ${chartWidth - chartPadding.right + 10},${xAxisY + 6}`,
+        fill: "#e7eaf3",
+    }));
+
+    for (let tick = 0; tick <= tickCount; tick += 1) {
+        const value = (maxValue / tickCount) * tick;
+        const y = chartPadding.top + plotHeight - ((value / maxValue) * plotHeight);
+        chartElement.appendChild(makeNode("line", {
+            x1: chartPadding.left,
+            y1: y,
+            x2: chartWidth - chartPadding.right,
+            y2: y,
+            stroke: "rgba(255,255,255,0.18)",
+            "stroke-width": "1",
+        }));
+        chartElement.appendChild(makeNode("line", {
+            x1: yAxisX - 7,
+            y1: y,
+            x2: yAxisX,
+            y2: y,
+            stroke: "#e7eaf3",
+            "stroke-width": "2",
+        }));
+        const label = makeNode("text", {
+            x: chartPadding.left - 14,
+            y: y + 5,
+            fill: "#d7dcec",
+            "font-size": "13",
+            "font-weight": "700",
+            "text-anchor": "end",
+        });
+        label.textContent = Number.isInteger(value) ? String(value) : value.toFixed(1);
+        chartElement.appendChild(label);
+    }
+
+    const yAxisTitle = makeNode("text", {
+        x: 26,
+        y: chartPadding.top + (plotHeight / 2),
+        fill: "#f2f4fb",
+        "font-size": "15",
+        "font-weight": "700",
+        "text-anchor": "middle",
+        transform: `rotate(-90 26 ${chartPadding.top + (plotHeight / 2)})`,
+    });
+    yAxisTitle.textContent = "Sale Quantity";
+    chartElement.appendChild(yAxisTitle);
+
+    const xAxisTitle = makeNode("text", {
+        x: chartPadding.left + ((chartWidth - chartPadding.left - chartPadding.right) / 2),
+        y: chartHeight - 22,
+        fill: "#f2f4fb",
+        "font-size": "15",
+        "font-weight": "700",
+        "text-anchor": "middle",
+    });
+    xAxisTitle.textContent = "Date";
+    chartElement.appendChild(xAxisTitle);
+
+    days.forEach((day, dayIndex) => {
+        const groupX = chartPadding.left + (dayIndex * groupWidth);
+        const totalBarWidth = (barsPerGroup * barWidth) + ((barsPerGroup - 1) * barGap);
+        const topIndex = day.values.indexOf(Math.max(...day.values));
+
+        day.values.forEach((value, categoryIndex) => {
+            const barHeight = (value / maxValue) * plotHeight;
+            const x = groupX + (categoryIndex * (barWidth + barGap));
+            const y = chartPadding.top + plotHeight - barHeight;
+            const category = categories[categoryIndex];
+            const rect = makeNode("rect", {
+                x,
+                y,
+                width: barWidth,
+                height: Math.max(barHeight, 2),
+                rx: 4,
+                fill: category.color,
+                stroke: categoryIndex === topIndex && value > 0 ? "#ffffff" : "none",
+                "stroke-width": categoryIndex === topIndex && value > 0 ? "2" : "0",
+            });
+            const title = makeNode("title");
+            title.textContent = `${day.date} | ${category.label}: ${value}`;
+            rect.appendChild(title);
+            chartElement.appendChild(rect);
+
+            if (value > 0) {
+                const valueLabel = makeNode("text", {
+                    x: x + (barWidth / 2),
+                    y: y - 8,
+                    fill: "#f4f6fd",
+                    "font-size": "12",
+                    "font-weight": "700",
+                    "text-anchor": "middle",
+                });
+                valueLabel.textContent = Number.isInteger(value) ? String(value) : value.toFixed(1);
+                chartElement.appendChild(valueLabel);
+            }
+        });
+
+        const winnerLabel = makeNode("text", {
+            x: groupX + (totalBarWidth / 2),
+            y: chartPadding.top - 10,
+            fill: "#f2c4cc",
+            "font-size": "12",
+            "font-weight": "700",
+            "text-anchor": "middle",
+        });
+        winnerLabel.textContent = day.top_label;
+        chartElement.appendChild(winnerLabel);
+
+        const dateLabel = makeNode("text", {
+            x: groupX + (totalBarWidth / 2),
+            y: chartHeight - 42,
+            fill: "#d5dae8",
+            "font-size": "13",
+            "font-weight": "700",
+            "text-anchor": "middle",
+        });
+        dateLabel.textContent = day.display_date;
+        chartElement.appendChild(dateLabel);
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

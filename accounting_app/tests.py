@@ -22,6 +22,15 @@ class AccountingSummaryFlowTests(TestCase):
         self.client.force_login(self.user)
         self.branch = Branch.objects.create(name="Township")
 
+    def seed_sales_entries(self, target_date, sales_by_item, branch=None):
+        context = resolve_sheet(branch_id=(branch or self.branch).pk, raw_date=target_date.isoformat())
+        entries_by_name = {entry.item.name: entry for entry in context["entries"]}
+        for item_name, sale_value in sales_by_item.items():
+            entry = entries_by_name[item_name]
+            entry.sale = Decimal(str(sale_value))
+            entry.save(update_fields=["sale"])
+        return context["daily_stock"]
+
     def test_summary_form_loads_existing_branch_and_date(self):
         StockSheet.objects.create(
             title="Existing Summary",
@@ -164,6 +173,75 @@ class AccountingSummaryFlowTests(TestCase):
         self.assertContains(response, "2026-04-12")
         self.assertNotContains(response, "ACC-OLD")
         self.assertNotContains(response, "2026-04-02")
+
+    def test_reports_dashboard_builds_grouped_sales_graph_for_date_range(self):
+        self.seed_sales_entries(
+            date(2026, 3, 27),
+            {
+                "Small Dough": 2,
+                "Medium Dough": 3,
+                "Large Dough": 5,
+                "Tortia Wrap": 4,
+                "Paratha / Bread": 6,
+                "Chicken Thigh Fillet": 7,
+                "Chicken Piece": 2,
+                "Chicken Wings": 1,
+                "Veggie Burger": 50,
+            },
+        )
+        self.seed_sales_entries(
+            date(2026, 3, 28),
+            {
+                "Small Dough": 1,
+                "Medium Dough": 1,
+                "Large Dough": 2,
+                "Chicken Wings": 9,
+            },
+        )
+
+        response = self.client.get(
+            reverse("reports_center:dashboard"),
+            {
+                "branch": self.branch.pk,
+                "date_from": "2026-03-27",
+                "date_to": "2026-03-28",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        sales_graph = response.context["sales_graph"]
+        self.assertTrue(sales_graph["has_data"])
+        self.assertEqual(len(sales_graph["days"]), 2)
+        totals_by_label = {category["label"]: category["total"] for category in sales_graph["categories"]}
+        self.assertEqual(totals_by_label["Pizza Dough"], 14.0)
+        self.assertEqual(totals_by_label["Chicken Fillet Burger"], 7.0)
+        self.assertEqual(totals_by_label["Chicken Wings"], 10.0)
+        self.assertNotIn("Veggie Burger", response.content.decode())
+        self.assertContains(response, "Daily item sales graph")
+        self.assertContains(response, "2026-03-27")
+
+    def test_reports_dashboard_graph_view_hides_report_tables_and_stats(self):
+        self.seed_sales_entries(
+            date(2026, 3, 27),
+            {
+                "Small Dough": 2,
+                "Chicken Wings": 3,
+            },
+        )
+
+        response = self.client.get(
+            reverse("reports_center:sales_graphs"),
+            {
+                "branch": self.branch.pk,
+                "date": "2026-03-27",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Daily item sales graph")
+        self.assertNotContains(response, "Daily Stock Reports")
+        self.assertNotContains(response, "Daily stock sheets")
+        self.assertNotContains(response, "Account summaries")
 
     def test_accounting_user_can_open_summary_detail(self):
         accounting_group, _ = Group.objects.get_or_create(name=ACCOUNTING_ROLE)
