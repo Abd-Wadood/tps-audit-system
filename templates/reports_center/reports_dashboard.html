@@ -29,6 +29,9 @@
             <button type="submit" class="primary-button">Search Reports</button>
         </div>
     </form>
+    {% if default_window_active %}
+    <p class="lead">Showing reports from the last 10 days only: {{ default_window_start }} to {{ default_window_end }}. Search by date to view older reports.</p>
+    {% endif %}
 </section>
 
 <section class="stats-grid">

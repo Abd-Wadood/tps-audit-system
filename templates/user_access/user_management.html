@@ -44,6 +44,60 @@
     </aside>
 </section>
 
+<section class="summary-shell">
+    <section class="card">
+        <div class="section-head">
+            <div>
+                <p class="eyebrow">Stock Setup</p>
+                <h2>Add Stock Sheet Item</h2>
+            </div>
+        </div>
+        <form method="post" class="form-grid">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_item">
+            <div>
+                <label for="{{ stock_item_form.name.id_for_label }}">{{ stock_item_form.name.label }}</label>
+                {{ stock_item_form.name }}
+                {{ stock_item_form.name.errors }}
+            </div>
+            <button type="submit" class="primary-button">Add Item</button>
+        </form>
+    </section>
+
+    <aside class="card account-summary-card">
+        <p class="eyebrow">Find Item</p>
+        <h2>Search Stock Sheet Items</h2>
+        <form method="get" class="form-grid">
+            <div>
+                <label for="item_query">Item Name</label>
+                <input id="item_query" name="item_query" value="{{ stock_item_query }}" placeholder="Search item by name">
+            </div>
+            <button type="submit" class="ghost-button">Search Item</button>
+        </form>
+        <div class="input-list">
+            {% if stock_item_query %}
+            {% for stock_item in stock_items %}
+            <div class="line-row readonly-row">
+                <span>{{ forloop.counter }}</span>
+                <strong>{{ stock_item.name }}</strong>
+                <form method="post" class="role-form-inline" onsubmit="return confirm('Remove stock item {{ stock_item.name }}? This will also delete linked stock entries.');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_item">
+                    <input type="hidden" name="item_id" value="{{ stock_item.id }}">
+                    <input type="hidden" name="item_query" value="{{ stock_item_query }}">
+                    <button type="submit" class="ghost-button">Remove</button>
+                </form>
+            </div>
+            {% empty %}
+            <p class="lead">No stock items match "{{ stock_item_query }}".</p>
+            {% endfor %}
+            {% else %}
+            <p class="lead">Search by item name to find and remove a stock sheet item.</p>
+            {% endif %}
+        </div>
+    </aside>
+</section>
+
 
 <section class="card">
     <div class="section-head">

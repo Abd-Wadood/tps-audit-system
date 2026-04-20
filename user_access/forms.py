@@ -3,7 +3,7 @@ from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 
-from stocks.models import Branch
+from stocks.models import Branch, Item
 from .constants import ROLE_CHOICES
 
 
@@ -57,3 +57,22 @@ class OwnerUserRoleForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.fields["branch"].queryset = Branch.objects.order_by("name")
         self.fields["branch"].label = "Branch Access"
+
+
+class OwnerStockItemForm(forms.ModelForm):
+    class Meta:
+        model = Item
+        fields = ("name",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["name"].label = "Item Name"
+        self.fields["name"].widget.attrs.update({"placeholder": "Add stock item"})
+
+    def clean_name(self):
+        name = (self.cleaned_data.get("name") or "").strip()
+        if not name:
+            raise forms.ValidationError("Item name is required.")
+        if Item.objects.filter(name__iexact=name).exists():
+            raise forms.ValidationError("This stock item already exists.")
+        return name

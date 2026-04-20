@@ -8,10 +8,10 @@ from django.urls import reverse
 from django.utils.dateparse import parse_date
 
 from stock_control.sheet_logic import ensure_seed_data
-from stocks.models import Branch, StockSheet
+from stocks.models import Branch, Item, StockSheet
 from .access import get_branch_aware_url, get_user_branch_id
 from .constants import ACCOUNTING_ROLE, REPORT_ROLE, STOCK_ROLE
-from .forms import OwnerUserCreateForm, OwnerUserRoleForm, SignInForm
+from .forms import OwnerStockItemForm, OwnerUserCreateForm, OwnerUserRoleForm, SignInForm
 from .models import UserWorkspace
 from .permissions import role_flags
 
@@ -98,8 +98,14 @@ def owner_user_management_view(request):
 
     ensure_seed_data()
     create_form = OwnerUserCreateForm()
+    stock_item_form = OwnerStockItemForm()
+    stock_item_query = request.GET.get("item_query", "").strip()
     if request.method == "POST":
         action = request.POST.get("action")
+        redirect_url = reverse("user_access:user_management")
+        redirect_query = request.POST.get("item_query", "").strip()
+        if redirect_query:
+            redirect_url = f"{redirect_url}?item_query={redirect_query}"
         if action == "create_user":
             create_form = OwnerUserCreateForm(request.POST)
             if create_form.is_valid():
@@ -112,7 +118,7 @@ def owner_user_management_view(request):
                 user.groups.set([Group.objects.get(name=role)])
                 UserWorkspace.objects.update_or_create(user=user, defaults={"branch": branch})
                 messages.success(request, f"User {user.username} created successfully.")
-                return redirect("user_access:user_management")
+                return redirect(redirect_url)
         elif action == "update_role":
             role_form = OwnerUserRoleForm(request.POST)
             if role_form.is_valid():
@@ -126,7 +132,7 @@ def owner_user_management_view(request):
                         defaults={"branch": role_form.cleaned_data["branch"]},
                     )
                     messages.success(request, f"Updated role for {managed_user.username}.")
-                return redirect("user_access:user_management")
+                return redirect(redirect_url)
         elif action == "delete_user":
             managed_user = get_object_or_404(User, pk=request.POST.get("user_id"))
             if managed_user.is_superuser:
@@ -135,9 +141,24 @@ def owner_user_management_view(request):
                 username = managed_user.username
                 managed_user.delete()
                 messages.success(request, f"Deleted user {username}.")
-            return redirect("user_access:user_management")
+            return redirect(redirect_url)
+        elif action == "create_item":
+            stock_item_form = OwnerStockItemForm(request.POST)
+            if stock_item_form.is_valid():
+                item = stock_item_form.save()
+                messages.success(request, f"Stock item {item.name} added successfully.")
+                return redirect(redirect_url)
+        elif action == "delete_item":
+            item = get_object_or_404(Item, pk=request.POST.get("item_id"))
+            item_name = item.name
+            item.delete()
+            messages.success(request, f"Stock item {item_name} removed successfully.")
+            return redirect(redirect_url)
 
     managed_users = User.objects.select_related("workspace__branch").order_by("username")
+    stock_items = Item.objects.none()
+    if stock_item_query:
+        stock_items = Item.objects.filter(name__icontains=stock_item_query).order_by("name")
     user_role_forms = []
     for managed_user in managed_users:
         initial_role = managed_user.groups.values_list("name", flat=True).first() or STOCK_ROLE
@@ -159,6 +180,9 @@ def owner_user_management_view(request):
         "user_access/user_management.html",
         {
             "create_form": create_form,
+            "stock_item_form": stock_item_form,
+            "stock_items": stock_items,
+            "stock_item_query": stock_item_query,
             "user_role_forms": user_role_forms,
         },
     )

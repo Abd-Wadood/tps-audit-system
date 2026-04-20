@@ -128,6 +128,43 @@ class AccountingSummaryFlowTests(TestCase):
         self.assertContains(response, "Township")
         self.assertNotContains(response, "Bahria Summary")
 
+    def test_reports_dashboard_defaults_to_last_10_days_without_date_filter(self):
+        DailyStock.objects.create(branch=self.branch, date=date(2026, 4, 12))
+        DailyStock.objects.create(branch=self.branch, date=date(2026, 4, 2))
+        StockSheet.objects.create(
+            title="Recent Summary",
+            reference_number="ACC-RECENT",
+            sheet_date=date(2026, 4, 11),
+            branch=self.branch,
+            system_sale=100,
+            local_purchases={"values": {}, "custom_rows": []},
+            market_purchases={"values": {}, "custom_rows": []},
+            counter_summary={"values": {}, "custom_rows": []},
+            total_summary={"values": {}, "custom_rows": []},
+            totals={"total_sale": "100", "total_purchase": "0", "balance": "100"},
+            created_by=self.user,
+        )
+        StockSheet.objects.create(
+            title="Old Summary",
+            reference_number="ACC-OLD",
+            sheet_date=date(2026, 4, 1),
+            branch=self.branch,
+            system_sale=100,
+            local_purchases={"values": {}, "custom_rows": []},
+            market_purchases={"values": {}, "custom_rows": []},
+            counter_summary={"values": {}, "custom_rows": []},
+            total_summary={"values": {}, "custom_rows": []},
+            totals={"total_sale": "100", "total_purchase": "0", "balance": "100"},
+            created_by=self.user,
+        )
+
+        response = self.client.get(reverse("reports_center:dashboard"))
+
+        self.assertContains(response, "Recent Summary")
+        self.assertContains(response, "2026-04-12")
+        self.assertNotContains(response, "ACC-OLD")
+        self.assertNotContains(response, "2026-04-02")
+
     def test_accounting_user_can_open_summary_detail(self):
         accounting_group, _ = Group.objects.get_or_create(name=ACCOUNTING_ROLE)
         accounting_user = User.objects.create_user(username="acc", password="testpass123")
