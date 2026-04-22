@@ -100,6 +100,45 @@ class AccountingSummaryFlowTests(TestCase):
         self.assertEqual(existing.revision_count, 1)
         self.assertEqual(existing.last_updated_by, self.user)
 
+    def test_summary_create_ignores_manual_reference_number_and_generates_date_based_id(self):
+        response = self.client.post(
+            reverse("accounting_app:summary_create"),
+            {
+                "title": "Generated Summary",
+                "reference_number": "MANUAL-CONFLICT",
+                "sheet_date": "2026-03-27",
+                "branch": str(self.branch.pk),
+                "system_sale": "300",
+                "local_custom_rows": "[]",
+                "market_custom_rows": "[]",
+                "total_custom_rows": "[]",
+                "local_cheese": "10",
+                "market_chicken": "20",
+                "counter_counter_sale": "30",
+                "counter_direct_sale": "0",
+                "counter_credit": "0",
+                "total_loan": "0",
+                "total_extra_fee": "0",
+                "total_total_wage": "0",
+                "total_food_panda": "0",
+                "total_discount": "0",
+                "total_counter_purchase": "0",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        sheet = StockSheet.objects.get(branch=self.branch, sheet_date=date(2026, 3, 27))
+        self.assertEqual(sheet.reference_number, f"ACC-20260327-B{self.branch.pk}")
+        self.assertNotEqual(sheet.reference_number, "MANUAL-CONFLICT")
+
+    def test_summary_form_shows_reference_number_as_readonly(self):
+        response = self.client.get(
+            reverse("accounting_app:summary_create"),
+            {"branch": self.branch.pk, "sheet_date": "2026-03-27"},
+        )
+
+        self.assertContains(response, f'value="ACC-20260327-B{self.branch.pk}" readonly')
+
     def test_reports_dashboard_filters_by_branch_and_date(self):
         other_branch = Branch.objects.create(name="Bahria")
         DailyStock.objects.create(branch=self.branch, date=date(2026, 3, 27))
@@ -473,7 +512,8 @@ class AccountingSummaryFlowTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        sheet = StockSheet.objects.get(reference_number="ACC-NEGATIVE")
+        sheet = StockSheet.objects.get(branch=self.branch, sheet_date=date(2026, 3, 27))
+        self.assertEqual(sheet.reference_number, f"ACC-20260327-B{self.branch.pk}")
         self.assertEqual(str(sheet.system_sale), "0.00")
         self.assertEqual(sheet.local_purchases["values"]["cheese"], "0")
         self.assertEqual(sheet.market_purchases["values"]["chicken"], "0")

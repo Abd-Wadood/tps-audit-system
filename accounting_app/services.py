@@ -9,6 +9,11 @@ from user_access.access import get_accessible_branches, get_user_branch_id
 from .account_summary_calculations import SECTION_CONFIG, calculate_totals, extract_section, parse_decimal
 
 
+def build_reference_number(selected_date, selected_branch):
+    branch_token = selected_branch.pk if selected_branch else "NA"
+    return f"ACC-{selected_date:%Y%m%d}-B{branch_token}"
+
+
 def get_accounting_branch_options(user, selected_branch_id=None):
     ensure_seed_data()
     branches = get_accessible_branches(user)
@@ -41,6 +46,11 @@ def get_section_data(sheet, section_key):
 
 
 def build_summary_form_context(selected_branch, selected_date, existing_sheet=None):
+    reference_number = (
+        existing_sheet.reference_number
+        if existing_sheet and existing_sheet.reference_number
+        else build_reference_number(selected_date, selected_branch)
+    )
     sections = {}
     for section_key, config in SECTION_CONFIG.items():
         section_data = get_section_data(existing_sheet, section_key)
@@ -62,7 +72,7 @@ def build_summary_form_context(selected_branch, selected_date, existing_sheet=No
 
     return {
         "title_value": existing_sheet.title if existing_sheet else "Daily Account Summary",
-        "reference_number_value": existing_sheet.reference_number if existing_sheet else "",
+        "reference_number_value": reference_number,
         "system_sale_value": existing_sheet.system_sale if existing_sheet else "0",
         "sections": sections,
         "loaded_summary": existing_sheet,
@@ -87,11 +97,8 @@ def save_account_summary(request, selected_branch, selected_date, existing_sheet
     if existing_sheet:
         sheet.revision_count += 1
     sheet.title = request.POST.get("title", "Account Summary").strip() or "Account Summary"
-    submitted_reference = request.POST.get("reference_number", "").strip()
-    if submitted_reference:
-        sheet.reference_number = submitted_reference
-    elif not sheet.reference_number:
-        sheet.reference_number = f"ACC-{selected_date:%Y%m%d}-B{selected_branch.pk}"
+    if not existing_sheet or not sheet.reference_number:
+        sheet.reference_number = build_reference_number(selected_date, selected_branch)
     sheet.system_sale = parse_decimal(request.POST.get("system_sale", "0"), clamp_non_negative=True)
     sheet.local_purchases = local_data
     sheet.market_purchases = market_data
