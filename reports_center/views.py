@@ -14,6 +14,7 @@ ITEM_SALE_GROUPS = [
     {"key": "tortia_wrap", "label": "Tortia Wrap", "items": ["Tortia Wrap"], "color": "#d7a94b"},
     {"key": "paratha_roll", "label": "Paratha Roll", "items": ["Paratha / Bread"], "color": "#7db36e"},
     {"key": "chicken_fillet_burger", "label": "Chicken Fillet Burger", "items": ["Chicken Thigh Fillet"], "color": "#4aa7a2"},
+    {"key": "burger_buns", "label": "Burger Buns", "items": ["Burger Buns"], "color": "#c97a3d"},
     {"key": "chicken_piece", "label": "Chicken Piece", "items": ["Chicken Piece"], "color": "#4f86d9"},
     {"key": "chicken_wings", "label": "Chicken Wings", "items": ["Chicken Wings"], "color": "#9a67d1"},
 ]
@@ -131,7 +132,11 @@ def build_reports_dashboard_context(request, graph_only_view=False):
     daily_reports = daily_reports.filter(date__gte=filter_start, date__lte=filter_end)
     account_reports = account_reports.filter(sheet_date__gte=filter_start, sheet_date__lte=filter_end)
 
-    sales_graph = build_sales_graph_data(selected_branch_id, filter_start, filter_end)
+    sales_graph = (
+        build_sales_graph_data(selected_branch_id, filter_start, filter_end)
+        if graph_only_view
+        else {"categories": [], "days": [], "has_data": False}
+    )
 
     context = {
         "daily_reports": daily_reports,

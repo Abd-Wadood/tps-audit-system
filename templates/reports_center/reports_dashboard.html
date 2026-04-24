@@ -69,6 +69,7 @@
 </section>
 {% endif %}
 
+{% if graph_only_view %}
 <section id="sales-graphs" class="card">
     <div class="section-head">
         <div>
@@ -95,6 +96,7 @@
     <p class="lead">No item sale data is available for this filter yet.</p>
     {% endif %}
 </section>
+{% endif %}
 
 {% if not graph_only_view %}
 <section class="card">
@@ -176,7 +178,7 @@
 </section>
 {% endif %}
 
-{% if sales_graph.has_data %}
+{% if graph_only_view and sales_graph.has_data %}
 <script>
 (() => {
     const chartElement = document.querySelector("[data-sales-chart]");
