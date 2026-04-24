@@ -1,6 +1,12 @@
+from decimal import Decimal
+
 from user_access.access import get_accessible_branches, get_user_branch_id
 
-from .sheet_logic import coerce_int, normalize_stock_value, resolve_sheet
+from .sheet_logic import coerce_decimal, coerce_int, normalize_stock_value, resolve_sheet
+
+
+def normalize_review_value(value):
+    return coerce_decimal(value).quantize(Decimal("0.01"))
 
 
 def get_stock_sheet_context(user, branch_id=None, raw_date=None):
@@ -35,10 +41,10 @@ def save_stock_totals(daily_stock, post_data, user):
 def save_accounting_review_entries(entries_by_id, post_data):
     for entry_id, entry in entries_by_id.items():
         entry.stock = entry.opening + entry.received
-        entry.cancelled = normalize_stock_value(post_data.get(f"cancelled_{entry_id}"), entry.item.name)
-        entry.ready = normalize_stock_value(post_data.get(f"ready_{entry_id}"), entry.item.name)
+        entry.cancelled = normalize_review_value(post_data.get(f"cancelled_{entry_id}"))
+        entry.ready = normalize_review_value(post_data.get(f"ready_{entry_id}"))
         entry.in_hand = entry.stock - entry.sale + entry.cancelled
-        entry.remaining_value = normalize_stock_value(post_data.get(f"remaining_{entry_id}"), entry.item.name)
+        entry.remaining_value = normalize_review_value(post_data.get(f"remaining_{entry_id}"))
         entry.save(update_fields=["stock", "cancelled", "ready", "in_hand", "remaining_value"])
 
 

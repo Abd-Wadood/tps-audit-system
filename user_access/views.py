@@ -38,6 +38,25 @@ def parse_optional_int(value):
         return None
 
 
+def get_summary_range(branch_id, date_from, date_to):
+    summaries = (
+        StockSheet.objects.select_related("branch", "created_by")
+        .filter(sheet_date__gte=date_from, sheet_date__lte=date_to)
+        .order_by("sheet_date", "branch__name", "reference_number")
+    )
+    if branch_id:
+        summaries = summaries.filter(branch_id=branch_id)
+    return summaries
+
+
+def sum_summary_values(summaries, value_getter, *, clamp_non_negative=False):
+    total = Decimal("0")
+    parser = parse_non_negative_decimal if clamp_non_negative else parse_decimal
+    for summary in summaries:
+        total += parser(value_getter(summary))
+    return total
+
+
 class WorkspaceLoginView(LoginView):
     template_name = "user_access/login.html"
     authentication_form = SignInForm
@@ -228,48 +247,48 @@ def owner_balance_view(request):
     overall_summary_count = StockSheet.objects.count()
 
     if balance_from and balance_to:
-        balance_summaries = (
-            StockSheet.objects.select_related("branch", "created_by")
-            .filter(sheet_date__gte=balance_from, sheet_date__lte=balance_to)
-            .order_by("sheet_date", "branch__name", "reference_number")
+        balance_summaries = get_summary_range(
+            balance_branch_id,
+            balance_from,
+            balance_to,
         )
-        if balance_branch_id:
-            balance_summaries = balance_summaries.filter(branch_id=balance_branch_id)
-        for summary in balance_summaries:
-            total_balance += parse_decimal(summary.balance)
+        total_balance = sum_summary_values(balance_summaries, lambda summary: summary.balance)
 
     if chicken_from and chicken_to:
-        chicken_summaries = (
-            StockSheet.objects.select_related("branch", "created_by")
-            .filter(sheet_date__gte=chicken_from, sheet_date__lte=chicken_to)
-            .order_by("sheet_date", "branch__name", "reference_number")
+        chicken_summaries = get_summary_range(
+            chicken_branch_id,
+            chicken_from,
+            chicken_to,
         )
-        if chicken_branch_id:
-            chicken_summaries = chicken_summaries.filter(branch_id=chicken_branch_id)
-        for summary in chicken_summaries:
-            total_chicken_purchase += parse_non_negative_decimal(summary.market_purchases.get("values", {}).get("chicken", "0"))
+        total_chicken_purchase = sum_summary_values(
+            chicken_summaries,
+            lambda summary: summary.market_purchases.get("values", {}).get("chicken", "0"),
+            clamp_non_negative=True,
+        )
 
     if food_panda_from and food_panda_to:
-        food_panda_summaries = (
-            StockSheet.objects.select_related("branch", "created_by")
-            .filter(sheet_date__gte=food_panda_from, sheet_date__lte=food_panda_to)
-            .order_by("sheet_date", "branch__name", "reference_number")
+        food_panda_summaries = get_summary_range(
+            food_panda_branch_id,
+            food_panda_from,
+            food_panda_to,
         )
-        if food_panda_branch_id:
-            food_panda_summaries = food_panda_summaries.filter(branch_id=food_panda_branch_id)
-        for summary in food_panda_summaries:
-            total_food_panda += parse_non_negative_decimal(summary.total_summary.get("values", {}).get("food_panda", "0"))
+        total_food_panda = sum_summary_values(
+            food_panda_summaries,
+            lambda summary: summary.total_summary.get("values", {}).get("food_panda", "0"),
+            clamp_non_negative=True,
+        )
 
     if sheikh_bill_from and sheikh_bill_to:
-        sheikh_bill_summaries = (
-            StockSheet.objects.select_related("branch", "created_by")
-            .filter(sheet_date__gte=sheikh_bill_from, sheet_date__lte=sheikh_bill_to)
-            .order_by("sheet_date", "branch__name", "reference_number")
+        sheikh_bill_summaries = get_summary_range(
+            sheikh_bill_branch_id,
+            sheikh_bill_from,
+            sheikh_bill_to,
         )
-        if sheikh_bill_branch_id:
-            sheikh_bill_summaries = sheikh_bill_summaries.filter(branch_id=sheikh_bill_branch_id)
-        for summary in sheikh_bill_summaries:
-            total_sheikh_bill_purchase += parse_non_negative_decimal(summary.market_purchases.get("values", {}).get("sheikh_bill", "0"))
+        total_sheikh_bill_purchase = sum_summary_values(
+            sheikh_bill_summaries,
+            lambda summary: summary.market_purchases.get("values", {}).get("sheikh_bill", "0"),
+            clamp_non_negative=True,
+        )
 
     return render(
         request,

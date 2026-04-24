@@ -9,6 +9,13 @@ from user_access.access import get_accessible_branches, get_user_branch_id
 from .account_summary_calculations import SECTION_CONFIG, calculate_totals, extract_section, parse_decimal
 
 
+REQUIRED_SALE_FIELDS = {
+    "system_sale": "System Sale",
+    "counter_counter_sale": "Counter Sale",
+    "counter_direct_sale": "Direct Sale",
+}
+
+
 def build_reference_number(selected_date, selected_branch):
     branch_token = selected_branch.pk if selected_branch else "NA"
     return f"ACC-{selected_date:%Y%m%d}-B{branch_token}"
@@ -56,11 +63,14 @@ def build_summary_form_context(selected_branch, selected_date, existing_sheet=No
         section_data = get_section_data(existing_sheet, section_key)
         fields = []
         for field_key, label in config["fields"]:
+            default_value = "0"
+            if not existing_sheet and section_key == "counter" and field_key in {"counter_sale", "direct_sale"}:
+                default_value = ""
             fields.append(
                 {
                     "key": field_key,
                     "label": label,
-                    "value": section_data.get("values", {}).get(field_key, "0"),
+                    "value": section_data.get("values", {}).get(field_key, default_value),
                 }
             )
         custom_rows = section_data.get("custom_rows", [])
@@ -73,12 +83,20 @@ def build_summary_form_context(selected_branch, selected_date, existing_sheet=No
     return {
         "title_value": existing_sheet.title if existing_sheet else "Daily Account Summary",
         "reference_number_value": reference_number,
-        "system_sale_value": existing_sheet.system_sale if existing_sheet else "0",
+        "system_sale_value": existing_sheet.system_sale if existing_sheet else "",
         "sections": sections,
         "loaded_summary": existing_sheet,
         "loaded_branch_name": selected_branch.name if selected_branch else "",
         "loaded_date": selected_date.isoformat(),
     }
+
+
+def validate_required_summary_fields(post_data):
+    field_errors = {}
+    for field_name, label in REQUIRED_SALE_FIELDS.items():
+        if not str(post_data.get(field_name, "")).strip():
+            field_errors[field_name] = f"{label} is required."
+    return field_errors
 
 
 def save_account_summary(request, selected_branch, selected_date, existing_sheet=None):

@@ -75,6 +75,12 @@
         padding: 0.32rem 0.55rem;
     }
 
+    #account-summary-form .field-error {
+        color: #ffb4b4;
+        font-size: 0.9rem;
+        margin-top: 0.35rem;
+    }
+
     @media (max-width: 1024px) {
         #account-summary-form > .card.form-grid,
         #account-summary-form .summary-section,
@@ -156,7 +162,10 @@
         </div>
         <div>
             <label for="system_sale">System Sale</label>
-            <input id="system_sale" name="system_sale" type="number" step="0.01" min="0" value="{{ system_sale_value }}" data-summary-role="system-sale">
+            <input id="system_sale" name="system_sale" type="number" step="0.01" min="0" value="{{ system_sale_value }}" data-summary-role="system-sale" required>
+            {% if field_errors.system_sale %}
+            <p class="field-error">{{ field_errors.system_sale }}</p>
+            {% endif %}
         </div>
     </section>
 
@@ -221,8 +230,14 @@
                     {% for field in sections.counter.fields %}
                     <label class="line-row">
                         <span>{{ field.label }}</span>
-                        <input type="number" step="0.01" min="0" name="counter_{{ field.key }}" value="{{ field.value }}" data-section-input="counter">
+                        <input type="number" step="0.01" min="0" name="counter_{{ field.key }}" value="{{ field.value }}" data-section-input="counter" {% if field.key == "counter_sale" or field.key == "direct_sale" %}required{% endif %}>
                     </label>
+                    {% if field.key == "counter_sale" and field_errors.counter_counter_sale %}
+                    <p class="field-error">{{ field_errors.counter_counter_sale }}</p>
+                    {% endif %}
+                    {% if field.key == "direct_sale" and field_errors.counter_direct_sale %}
+                    <p class="field-error">{{ field_errors.counter_direct_sale }}</p>
+                    {% endif %}
                     {% endfor %}
                 </div>
                 <label class="line-row total-row">

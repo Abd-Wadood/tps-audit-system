@@ -22,6 +22,7 @@ from .services import (
     get_existing_summary,
     get_selected_accounting_branch_id,
     save_account_summary,
+    validate_required_summary_fields,
 )
 
 
@@ -56,18 +57,33 @@ def summary_create_view(request):
     branches, selected_branch = get_accounting_branch_options(request.user, selected_branch_id)
     selected_date = parse_selected_date(request.POST.get("sheet_date") or request.GET.get("sheet_date"))
     existing_sheet = get_existing_summary(selected_branch, selected_date)
+    field_errors = {}
 
     if request.method == "POST":
-        sheet = save_account_summary(request, selected_branch, selected_date, existing_sheet=existing_sheet)
-        return redirect("accounting_app:summary_detail", pk=sheet.pk)
+        field_errors = validate_required_summary_fields(request.POST)
+        if field_errors:
+            messages.error(request, "Fill in the required sale fields before saving the account summary.")
+        else:
+            sheet = save_account_summary(request, selected_branch, selected_date, existing_sheet=existing_sheet)
+            return redirect("accounting_app:summary_detail", pk=sheet.pk)
 
     context = {
         "section_config": SECTION_CONFIG,
         "default_date": selected_date.isoformat(),
         "branches": branches,
         "selected_branch_id": selected_branch.pk if selected_branch else None,
+        "field_errors": field_errors,
         **build_summary_form_context(selected_branch, selected_date, existing_sheet),
     }
+    if request.method == "POST":
+        context["title_value"] = request.POST.get("title", "")
+        context["reference_number_value"] = request.POST.get("reference_number", "")
+        context["system_sale_value"] = request.POST.get("system_sale", "")
+        for section_key in SECTION_CONFIG:
+            section_context = context["sections"][section_key]
+            section_context["custom_rows_json"] = request.POST.get(f"{section_key}_custom_rows", "[]")
+            for field in section_context["fields"]:
+                field["value"] = request.POST.get(f"{section_key}_{field['key']}", "")
     return render(request, "accounting_app/account_summary_form.html", context)
 
 

@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.contrib.auth.models import Group, User
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from stock_control.sheet_logic import resolve_sheet
 from user_access.constants import ACCOUNTING_ROLE
@@ -139,6 +140,16 @@ class AccountingSummaryFlowTests(TestCase):
 
         self.assertContains(response, f'value="ACC-20260327-B{self.branch.pk}" readonly')
 
+    def test_summary_form_starts_required_sales_fields_blank(self):
+        response = self.client.get(
+            reverse("accounting_app:summary_create"),
+            {"branch": self.branch.pk, "sheet_date": "2026-03-27"},
+        )
+
+        self.assertContains(response, 'name="system_sale" type="number" step="0.01" min="0" value=""')
+        self.assertContains(response, 'name="counter_counter_sale" value=""')
+        self.assertContains(response, 'name="counter_direct_sale" value=""')
+
     def test_reports_dashboard_filters_by_branch_and_date(self):
         other_branch = Branch.objects.create(name="Bahria")
         DailyStock.objects.create(branch=self.branch, date=date(2026, 3, 27))
@@ -177,12 +188,15 @@ class AccountingSummaryFlowTests(TestCase):
         self.assertNotContains(response, "Bahria Summary")
 
     def test_reports_dashboard_defaults_to_last_10_days_without_date_filter(self):
-        DailyStock.objects.create(branch=self.branch, date=date(2026, 4, 12))
-        DailyStock.objects.create(branch=self.branch, date=date(2026, 4, 2))
+        today = timezone.localdate()
+        recent_day = today - timezone.timedelta(days=1)
+        old_day = today - timezone.timedelta(days=20)
+        DailyStock.objects.create(branch=self.branch, date=recent_day)
+        DailyStock.objects.create(branch=self.branch, date=old_day)
         StockSheet.objects.create(
             title="Recent Summary",
             reference_number="ACC-RECENT",
-            sheet_date=date(2026, 4, 11),
+            sheet_date=recent_day,
             branch=self.branch,
             system_sale=100,
             local_purchases={"values": {}, "custom_rows": []},
@@ -195,7 +209,7 @@ class AccountingSummaryFlowTests(TestCase):
         StockSheet.objects.create(
             title="Old Summary",
             reference_number="ACC-OLD",
-            sheet_date=date(2026, 4, 1),
+            sheet_date=old_day,
             branch=self.branch,
             system_sale=100,
             local_purchases={"values": {}, "custom_rows": []},
@@ -209,9 +223,9 @@ class AccountingSummaryFlowTests(TestCase):
         response = self.client.get(reverse("reports_center:dashboard"))
 
         self.assertContains(response, "Recent Summary")
-        self.assertContains(response, "2026-04-12")
+        self.assertContains(response, str(recent_day))
         self.assertNotContains(response, "ACC-OLD")
-        self.assertNotContains(response, "2026-04-02")
+        self.assertNotContains(response, str(old_day))
 
     def test_reports_dashboard_builds_grouped_sales_graph_for_date_range(self):
         self.seed_sales_entries(
@@ -239,7 +253,7 @@ class AccountingSummaryFlowTests(TestCase):
         )
 
         response = self.client.get(
-            reverse("reports_center:dashboard"),
+            reverse("reports_center:sales_graphs"),
             {
                 "branch": self.branch.pk,
                 "date_from": "2026-03-27",
@@ -402,6 +416,38 @@ class AccountingSummaryFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(User.objects.filter(username="weak-user").exists())
         self.assertContains(response, "This password is too short")
+
+    def test_summary_create_requires_system_and_sale_fields(self):
+        response = self.client.post(
+            reverse("accounting_app:summary_create"),
+            {
+                "title": "Missing Required Fields",
+                "reference_number": "ACC-MISSING",
+                "sheet_date": "2026-03-27",
+                "branch": str(self.branch.pk),
+                "system_sale": "",
+                "local_custom_rows": "[]",
+                "market_custom_rows": "[]",
+                "total_custom_rows": "[]",
+                "local_cheese": "10",
+                "market_chicken": "20",
+                "counter_counter_sale": "",
+                "counter_direct_sale": "",
+                "counter_credit": "0",
+                "total_loan": "0",
+                "total_extra_fee": "0",
+                "total_total_wage": "0",
+                "total_food_panda": "0",
+                "total_discount": "0",
+                "total_counter_purchase": "0",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "System Sale is required.")
+        self.assertContains(response, "Counter Sale is required.")
+        self.assertContains(response, "Direct Sale is required.")
+        self.assertFalse(StockSheet.objects.filter(branch=self.branch, sheet_date=date(2026, 3, 27)).exists())
 
     def test_owner_can_create_user_with_branch_assignment(self):
         response = self.client.post(

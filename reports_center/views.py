@@ -153,13 +153,6 @@ def build_reports_dashboard_context(request, graph_only_view=False):
         "report_window_end": filter_end,
         "sales_graph": sales_graph,
         "graph_only_view": graph_only_view,
-        "graph_group_definitions": [
-            {
-                "label": group["label"],
-                "items_text": ", ".join(group["items"]),
-            }
-            for group in ITEM_SALE_GROUPS
-        ],
         "total_daily_reports": DailyStock.objects.count(),
         "total_account_reports": StockSheet.objects.count(),
     }
