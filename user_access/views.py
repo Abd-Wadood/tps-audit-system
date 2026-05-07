@@ -3,6 +3,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 from django.contrib.auth.models import Group, User
 from django.contrib.auth.views import LoginView
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.dateparse import parse_date
@@ -15,6 +16,7 @@ from .constants import ACCOUNTING_ROLE, REPORT_ROLE, STOCK_ROLE
 from .forms import OwnerStockItemForm, OwnerUserCreateForm, OwnerUserRoleForm, SignInForm
 from .models import UserWorkspace
 from .permissions import role_flags
+from .pdf import build_accounting_range_pdf
 
 
 def parse_non_negative_decimal(value):
@@ -163,6 +165,29 @@ def build_accounting_range_report(summaries, report_type):
         "breakdown": breakdown,
         "total": sum(entry["total"] for entry in breakdown),
     }
+
+
+def build_full_accounting_range_report(summaries):
+    sales_breakdown = build_sales_breakdown(summaries)
+    sales = {entry["key"]: entry["total"] for entry in sales_breakdown}
+    return {
+        "summary_count": len(summaries),
+        "balance": sum_summary_values(summaries, lambda summary: summary.balance),
+        "sales": sales,
+        "sections": [
+            build_accounting_range_report(summaries, "local"),
+            build_accounting_range_report(summaries, "market"),
+            build_accounting_range_report(summaries, "counter"),
+            build_accounting_range_report(summaries, "total"),
+        ],
+    }
+
+
+def get_branch_label(branch_id):
+    if not branch_id:
+        return "All Branches"
+    branch = Branch.objects.filter(pk=branch_id).first()
+    return branch.name if branch else "Selected Branch"
 
 
 class WorkspaceLoginView(LoginView):
@@ -379,3 +404,40 @@ def owner_balance_view(request):
             "overall_summary_count": overall_summary_count,
         },
     )
+
+
+def accounting_range_pdf_view(request):
+    if not request.user.is_authenticated:
+        return redirect("login")
+    if not request.user.is_superuser:
+        return redirect("user_access:workspace_home")
+
+    report_from_raw = request.GET.get("report_from", "").strip()
+    report_to_raw = request.GET.get("report_to", "").strip()
+    report_branch_id = request.GET.get("report_branch", "").strip()
+    report_from = parse_date(report_from_raw) if report_from_raw else None
+    report_to = parse_date(report_to_raw) if report_to_raw else None
+
+    if not report_from or not report_to:
+        messages.info(request, "Choose a from date and to date before downloading the accounting PDF.")
+        return redirect(f"{reverse('user_access:balance_overview')}#accounting-report-section")
+
+    summaries = get_summary_range(report_branch_id, report_from, report_to)
+    report = build_full_accounting_range_report(summaries)
+    branch_label = get_branch_label(report_branch_id)
+    generated_by = request.user.get_full_name() or request.user.username
+
+    response = HttpResponse(content_type="application/pdf")
+    filename_branch = branch_label.lower().replace(" ", "-")
+    response["Content-Disposition"] = (
+        f'attachment; filename="accounting-range-{filename_branch}-{report_from:%Y%m%d}-{report_to:%Y%m%d}.pdf"'
+    )
+    build_accounting_range_pdf(
+        buffer=response,
+        report=report,
+        branch_label=branch_label,
+        date_from=report_from,
+        date_to=report_to,
+        generated_by=generated_by,
+    )
+    return response

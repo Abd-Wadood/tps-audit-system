@@ -453,6 +453,46 @@ class AccountingSummaryFlowTests(TestCase):
         self.assertContains(response, "Total Purchase")
         self.assertContains(response, "93")
 
+    def test_owner_can_download_accounting_range_pdf(self):
+        StockSheet.objects.create(
+            title="PDF Range Summary",
+            reference_number="ACC-PDF",
+            sheet_date=date(2026, 4, 10),
+            branch=self.branch,
+            system_sale=500,
+            local_purchases={"values": {"cheese": "45", "fries": "20"}, "custom_rows": [{"label": "Ice", "value": "10"}]},
+            market_purchases={"values": {"chicken": "150", "sheikh_bill": "30"}, "custom_rows": [{"label": "Sauces", "value": "12"}]},
+            counter_summary={"values": {"counter_sale": "480", "direct_sale": "70", "credit": "20"}, "custom_rows": []},
+            total_summary={"values": {"loan": "15", "extra_fee": "5", "total_wage": "55", "food_panda": "35", "discount": "10", "counter_purchase": "25"}, "custom_rows": [{"label": "Repair", "value": "8"}]},
+            totals={
+                "system_sale": "500",
+                "counter_sale": "480",
+                "total_sale": "570",
+                "total_purchase": "375",
+                "balance": "195",
+            },
+            created_by=self.user,
+        )
+
+        response = self.client.get(
+            reverse("user_access:accounting_range_pdf"),
+            {
+                "report_branch": str(self.branch.pk),
+                "report_from": "2026-04-01",
+                "report_to": "2026-04-30",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("accounting-range-township-20260401-20260430.pdf", response["Content-Disposition"])
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_accounting_range_pdf_requires_dates(self):
+        response = self.client.get(reverse("user_access:accounting_range_pdf"))
+
+        self.assertRedirects(response, f"{reverse('user_access:balance_overview')}#accounting-report-section")
+
     def test_owner_can_delete_non_superuser_from_user_management(self):
         deletable_user = User.objects.create_user(username="delete_me", password="testpass123")
 

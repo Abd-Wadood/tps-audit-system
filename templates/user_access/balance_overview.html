@@ -128,6 +128,7 @@
             <input id="report_to" name="report_to" type="date" value="{{ report_to }}">
         </div>
         <button type="submit" class="primary-button">Show Report</button>
+        <button type="submit" class="ghost-button" formaction="{% url 'user_access:accounting_range_pdf' %}" formmethod="get">Download PDF</button>
     </form>
 
     <div class="summary-cards">
