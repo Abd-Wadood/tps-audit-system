@@ -10,14 +10,14 @@
 </section>
 
 {% if overall_summary_count == 0 %}
-<section class="card" id="balance-section">
+<section class="card">
     <p class="eyebrow">No Saved Accounting Data</p>
     <h2>Balance overview is empty because no account summaries have been saved yet</h2>
-    <p class="lead">Create and save an account summary first. After that, Balance, Chicken, Food Panda, and Sheikh Bill totals will appear for the selected branch and date range.</p>
+    <p class="lead">Create and save an account summary first. After that, balance and accounting range reports will appear for the selected branch and date range.</p>
 </section>
 {% endif %}
 
-<section class="card">
+<section class="card" id="balance-section">
     <div class="section-head">
         <div>
             <p class="eyebrow">Balance Range</p>
@@ -90,140 +90,73 @@
         </table>
     </div>
     {% else %}
-    <p class="lead">Choose both dates and click `Calculate Total Balance` to see the balance, chicken purchase, and sheikh bill purchase totals for that range.</p>
+    <p class="lead">Choose both dates and click `Calculate Total Balance` to see the balance totals for that range.</p>
     {% endif %}
 </section>
 
-<section class="card" id="chicken-section">
+<section class="card" id="accounting-report-section">
     <div class="section-head">
         <div>
-            <p class="eyebrow">Market Purchase</p>
-            <h2>Chicken Total By Date Range</h2>
+            <p class="eyebrow">Accounting Range Report</p>
+            <h2>{{ accounting_range_report.title }}</h2>
         </div>
     </div>
-    <form method="get" action="{% url 'user_access:balance_overview' %}#chicken-section" class="form-grid">
+    <form method="get" action="{% url 'user_access:balance_overview' %}#accounting-report-section" class="form-grid">
         <div>
-            <label for="chicken_branch">Branch</label>
-            <select id="chicken_branch" name="chicken_branch">
-                <option value="">All Branches</option>
-                {% for branch in branches %}
-                <option value="{{ branch.id }}" {% if branch.id == chicken_branch_id %}selected{% endif %}>{{ branch.name }}</option>
+            <label for="report_type">Report</label>
+            <select id="report_type" name="report_type">
+                {% for value, label in report_choices %}
+                <option value="{{ value }}" {% if value == report_type %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
         </div>
         <div>
-            <label for="chicken_from">From Date</label>
-            <input id="chicken_from" name="chicken_from" type="date" value="{{ chicken_from }}">
+            <label for="report_branch">Branch</label>
+            <select id="report_branch" name="report_branch">
+                <option value="">All Branches</option>
+                {% for branch in branches %}
+                <option value="{{ branch.id }}" {% if branch.id == report_branch_id %}selected{% endif %}>{{ branch.name }}</option>
+                {% endfor %}
+            </select>
         </div>
         <div>
-            <label for="chicken_to">To Date</label>
-            <input id="chicken_to" name="chicken_to" type="date" value="{{ chicken_to }}">
+            <label for="report_from">From Date</label>
+            <input id="report_from" name="report_from" type="date" value="{{ report_from }}">
         </div>
-        <button type="submit" class="primary-button">Calculate Chicken Total</button>
+        <div>
+            <label for="report_to">To Date</label>
+            <input id="report_to" name="report_to" type="date" value="{{ report_to }}">
+        </div>
+        <button type="submit" class="primary-button">Show Report</button>
     </form>
 
     <div class="summary-cards">
         <article class="summary-card">
             <span>Date Range</span>
-            <strong>{% if chicken_from and chicken_to %}{{ chicken_from }} to {{ chicken_to }}{% else %}Select a start and end date{% endif %}</strong>
+            <strong>{% if report_from and report_to %}{{ report_from }} to {{ report_to }}{% else %}Select a start and end date{% endif %}</strong>
         </article>
         <article class="summary-card">
             <span>Total Summaries</span>
-            <strong>{{ chicken_summaries|length }}</strong>
+            <strong>{{ report_summaries|length }}</strong>
         </article>
         <article class="summary-card">
-            <span>Chicken Purchase</span>
-            <strong>{{ total_chicken_purchase }}</strong>
+            <span>{{ accounting_range_report.total_label }}</span>
+            <strong>{{ accounting_range_report.total }}</strong>
         </article>
     </div>
-</section>
 
-<section class="card" id="food-panda-section">
-    <div class="section-head">
-        <div>
-            <p class="eyebrow">Total Summary</p>
-            <h2>Food Panda Total By Date Range</h2>
-        </div>
-    </div>
-    <form method="get" action="{% url 'user_access:balance_overview' %}#food-panda-section" class="form-grid">
-        <div>
-            <label for="food_panda_branch">Branch</label>
-            <select id="food_panda_branch" name="food_panda_branch">
-                <option value="">All Branches</option>
-                {% for branch in branches %}
-                <option value="{{ branch.id }}" {% if branch.id == food_panda_branch_id %}selected{% endif %}>{{ branch.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label for="food_panda_from">From Date</label>
-            <input id="food_panda_from" name="food_panda_from" type="date" value="{{ food_panda_from }}">
-        </div>
-        <div>
-            <label for="food_panda_to">To Date</label>
-            <input id="food_panda_to" name="food_panda_to" type="date" value="{{ food_panda_to }}">
-        </div>
-        <button type="submit" class="primary-button">Calculate Food Panda Total</button>
-    </form>
-
+    {% if report_from and report_to %}
     <div class="summary-cards">
+        {% for entry in accounting_range_report.breakdown %}
         <article class="summary-card">
-            <span>Date Range</span>
-            <strong>{% if food_panda_from and food_panda_to %}{{ food_panda_from }} to {{ food_panda_to }}{% else %}Select a start and end date{% endif %}</strong>
+            <span>{{ entry.label }}</span>
+            <strong>{{ entry.total }}</strong>
         </article>
-        <article class="summary-card">
-            <span>Total Summaries</span>
-            <strong>{{ food_panda_summaries|length }}</strong>
-        </article>
-        <article class="summary-card">
-            <span>Food Panda Total</span>
-            <strong>{{ total_food_panda }}</strong>
-        </article>
+        {% endfor %}
     </div>
-</section>
-
-<section class="card" id="sheikh-bill-section">
-    <div class="section-head">
-        <div>
-            <p class="eyebrow">Market Purchase</p>
-            <h2>Sheikh Bill Total By Date Range</h2>
-        </div>
-    </div>
-    <form method="get" action="{% url 'user_access:balance_overview' %}#sheikh-bill-section" class="form-grid">
-        <div>
-            <label for="sheikh_bill_branch">Branch</label>
-            <select id="sheikh_bill_branch" name="sheikh_bill_branch">
-                <option value="">All Branches</option>
-                {% for branch in branches %}
-                <option value="{{ branch.id }}" {% if branch.id == sheikh_bill_branch_id %}selected{% endif %}>{{ branch.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label for="sheikh_bill_from">From Date</label>
-            <input id="sheikh_bill_from" name="sheikh_bill_from" type="date" value="{{ sheikh_bill_from }}">
-        </div>
-        <div>
-            <label for="sheikh_bill_to">To Date</label>
-            <input id="sheikh_bill_to" name="sheikh_bill_to" type="date" value="{{ sheikh_bill_to }}">
-        </div>
-        <button type="submit" class="primary-button">Calculate Sheikh Bill Total</button>
-    </form>
-
-    <div class="summary-cards">
-        <article class="summary-card">
-            <span>Date Range</span>
-            <strong>{% if sheikh_bill_from and sheikh_bill_to %}{{ sheikh_bill_from }} to {{ sheikh_bill_to }}{% else %}Select a start and end date{% endif %}</strong>
-        </article>
-        <article class="summary-card">
-            <span>Total Summaries</span>
-            <strong>{{ sheikh_bill_summaries|length }}</strong>
-        </article>
-        <article class="summary-card">
-            <span>Sheikh Bill Purchase</span>
-            <strong>{{ total_sheikh_bill_purchase }}</strong>
-        </article>
-    </div>
+    {% else %}
+    <p class="lead">Choose a report, branch, and date range to see its totals and sub fields.</p>
+    {% endif %}
 </section>
 
 <script>

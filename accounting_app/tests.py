@@ -327,11 +327,11 @@ class AccountingSummaryFlowTests(TestCase):
             sheet_date=date(2026, 3, 10),
             branch=self.branch,
             system_sale=100,
-            local_purchases={"values": {}, "custom_rows": []},
+            local_purchases={"values": {"cheese": "11", "fries": "4"}, "custom_rows": [{"label": "Ice", "value": "3"}]},
             market_purchases={"values": {"chicken": "40", "sheikh_bill": "15"}, "custom_rows": []},
-            counter_summary={"values": {}, "custom_rows": []},
+            counter_summary={"values": {"counter_sale": "70"}, "custom_rows": []},
             total_summary={"values": {"food_panda": "12"}, "custom_rows": []},
-            totals={"total_sale": "100", "total_purchase": "0", "balance": "100"},
+            totals={"system_sale": "100", "counter_sale": "70", "total_sale": "120", "total_purchase": "20", "balance": "100"},
             created_by=self.user,
         )
         StockSheet.objects.create(
@@ -367,25 +367,91 @@ class AccountingSummaryFlowTests(TestCase):
                 "balance_branch": str(self.branch.pk),
                 "balance_from": "2026-03-09",
                 "balance_to": "2026-03-15",
-                "chicken_branch": str(self.branch.pk),
-                "chicken_from": "2026-03-09",
-                "chicken_to": "2026-03-15",
-                "food_panda_branch": str(self.branch.pk),
-                "food_panda_from": "2026-03-09",
-                "food_panda_to": "2026-03-15",
-                "sheikh_bill_branch": str(self.branch.pk),
-                "sheikh_bill_from": "2026-03-09",
-                "sheikh_bill_to": "2026-03-15",
+                "report_type": "local",
+                "report_branch": str(self.branch.pk),
+                "report_from": "2026-03-09",
+                "report_to": "2026-03-15",
             },
         )
 
         self.assertContains(response, "100")
-        self.assertContains(response, "40")
-        self.assertContains(response, "12")
-        self.assertContains(response, "15")
+        self.assertContains(response, "Cheese")
+        self.assertContains(response, "11")
+        self.assertContains(response, "Fries")
+        self.assertContains(response, "4")
+        self.assertContains(response, "Ice")
+        self.assertContains(response, "3")
         self.assertContains(response, "ACC-TOWN")
         self.assertNotContains(response, "ACC-BAH")
         self.assertNotContains(response, "ACC-OUT")
+        self.assertNotContains(response, "Chicken Total By Date Range")
+        self.assertNotContains(response, "Food Panda Total By Date Range")
+        self.assertNotContains(response, "Sheikh Bill Total By Date Range")
+
+    def test_owner_can_select_accounting_range_report_type(self):
+        StockSheet.objects.create(
+            title="Range Report Summary",
+            reference_number="ACC-RANGE",
+            sheet_date=date(2026, 3, 10),
+            branch=self.branch,
+            system_sale=100,
+            local_purchases={"values": {"cheese": "11"}, "custom_rows": []},
+            market_purchases={"values": {"chicken": "40", "packing": "6"}, "custom_rows": [{"label": "Sauces", "value": "5"}]},
+            counter_summary={"values": {"counter_sale": "70", "direct_sale": "12", "credit": "8"}, "custom_rows": []},
+            total_summary={"values": {"loan": "4", "extra_fee": "5", "total_wage": "6", "food_panda": "7", "discount": "8", "counter_purchase": "9"}, "custom_rows": [{"label": "Repair", "value": "3"}]},
+            totals={
+                "system_sale": "100",
+                "counter_sale": "70",
+                "total_sale": "90",
+                "total_purchase": "93",
+                "balance": "-3",
+            },
+            created_by=self.user,
+        )
+
+        base_query = {
+            "report_branch": str(self.branch.pk),
+            "report_from": "2026-03-09",
+            "report_to": "2026-03-15",
+        }
+
+        response = self.client.get(reverse("user_access:balance_overview"), {**base_query, "report_type": "market"})
+        self.assertContains(response, "Market Purchase")
+        self.assertContains(response, "Chicken")
+        self.assertContains(response, "40")
+        self.assertContains(response, "Packing")
+        self.assertContains(response, "6")
+        self.assertContains(response, "Sauces")
+        self.assertContains(response, "5")
+
+        response = self.client.get(reverse("user_access:balance_overview"), {**base_query, "report_type": "counter"})
+        self.assertContains(response, "Counter Summary")
+        self.assertContains(response, "Counter Sale")
+        self.assertContains(response, "70")
+        self.assertContains(response, "Direct Sale")
+        self.assertContains(response, "12")
+        self.assertContains(response, "Credit (Udhar Wapis)")
+        self.assertContains(response, "8")
+
+        response = self.client.get(reverse("user_access:balance_overview"), {**base_query, "report_type": "total"})
+        self.assertContains(response, "Total Summary Purchases")
+        self.assertContains(response, "Loan")
+        self.assertContains(response, "4")
+        self.assertContains(response, "Food Panda")
+        self.assertContains(response, "7")
+        self.assertContains(response, "Counter Purchase")
+        self.assertContains(response, "9")
+        self.assertContains(response, "Repair")
+        self.assertContains(response, "3")
+
+        response = self.client.get(reverse("user_access:balance_overview"), {**base_query, "report_type": "sales"})
+        self.assertContains(response, "Sales &amp; Purchase Totals")
+        self.assertContains(response, "System Sale")
+        self.assertContains(response, "100")
+        self.assertContains(response, "Total Sale")
+        self.assertContains(response, "90")
+        self.assertContains(response, "Total Purchase")
+        self.assertContains(response, "93")
 
     def test_owner_can_delete_non_superuser_from_user_management(self):
         deletable_user = User.objects.create_user(username="delete_me", password="testpass123")

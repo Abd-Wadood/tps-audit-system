@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.utils.dateparse import parse_date
 
 from stock_control.sheet_logic import ensure_seed_data
+from accounting_app.account_summary_calculations import SECTION_CONFIG
 from stocks.models import Branch, Item, StockSheet
 from .access import get_branch_aware_url, get_user_branch_id
 from .constants import ACCOUNTING_ROLE, REPORT_ROLE, STOCK_ROLE
@@ -55,6 +56,113 @@ def sum_summary_values(summaries, value_getter, *, clamp_non_negative=False):
     for summary in summaries:
         total += parser(value_getter(summary))
     return total
+
+
+def get_summary_total(summary, key, fallback=None):
+    value = summary.totals.get(key)
+    if value in (None, "") and fallback is not None:
+        value = fallback(summary)
+    return value
+
+
+SECTION_DATA_FIELDS = {
+    "local": "local_purchases",
+    "market": "market_purchases",
+    "counter": "counter_summary",
+    "total": "total_summary",
+}
+
+REPORT_CHOICES = [
+    ("sales", "Sales & Purchase Totals"),
+    ("local", "Local Purchases"),
+    ("market", "Market Purchase"),
+    ("counter", "Counter Summary"),
+    ("total", "Total Summary Purchases"),
+]
+
+
+def build_section_breakdown(summaries, section_name):
+    config = SECTION_CONFIG[section_name]
+    breakdown = [{"key": key, "label": label, "total": Decimal("0")} for key, label in config["fields"]]
+    lookup = {entry["key"]: entry for entry in breakdown}
+    custom_totals = {}
+
+    for summary in summaries:
+        section_data = getattr(summary, SECTION_DATA_FIELDS[section_name]) or {}
+        values = section_data.get("values", {})
+        for key in lookup:
+            lookup[key]["total"] += parse_non_negative_decimal(values.get(key, "0"))
+        for row in section_data.get("custom_rows", []):
+            label = str(row.get("label", "")).strip()
+            if not label:
+                continue
+            custom_totals[label] = custom_totals.get(label, Decimal("0")) + parse_non_negative_decimal(row.get("value", "0"))
+
+    for label, total in custom_totals.items():
+        breakdown.append({"key": f"custom_{label}", "label": label, "total": total})
+
+    return breakdown
+
+
+def build_sales_breakdown(summaries):
+    return [
+        {
+            "key": "system_sale",
+            "label": "System Sale",
+            "total": sum_summary_values(
+                summaries,
+                lambda summary: get_summary_total(summary, "system_sale", lambda sheet: sheet.system_sale),
+            ),
+        },
+        {
+            "key": "counter_sale",
+            "label": "Counter Sale",
+            "total": sum_summary_values(
+                summaries,
+                lambda summary: get_summary_total(
+                    summary,
+                    "counter_sale",
+                    lambda sheet: sheet.counter_summary.get("values", {}).get("counter_sale", "0"),
+                ),
+            ),
+        },
+        {
+            "key": "total_sale",
+            "label": "Total Sale",
+            "total": sum_summary_values(
+                summaries,
+                lambda summary: get_summary_total(summary, "total_sale", lambda sheet: sheet.total_sale),
+            ),
+        },
+        {
+            "key": "total_purchase",
+            "label": "Total Purchase",
+            "total": sum_summary_values(
+                summaries,
+                lambda summary: get_summary_total(summary, "total_purchase", lambda sheet: sheet.total_purchase),
+            ),
+        },
+    ]
+
+
+def build_accounting_range_report(summaries, report_type):
+    if report_type == "sales":
+        breakdown = build_sales_breakdown(summaries)
+        return {
+            "title": "Sales & Purchase Totals",
+            "total_label": "Total Purchase",
+            "breakdown": breakdown,
+            "total": next((entry["total"] for entry in breakdown if entry["key"] == "total_purchase"), Decimal("0")),
+        }
+
+    config = SECTION_CONFIG[report_type]
+    breakdown = build_section_breakdown(summaries, report_type)
+    return {
+        "title": config["title"],
+        "total_label": config["total_label"],
+        "breakdown": breakdown,
+        "total": sum(entry["total"] for entry in breakdown),
+    }
 
 
 class WorkspaceLoginView(LoginView):
@@ -217,33 +325,22 @@ def owner_balance_view(request):
     balance_from_raw = request.GET.get("balance_from", "").strip()
     balance_to_raw = request.GET.get("balance_to", "").strip()
     balance_branch_id = request.GET.get("balance_branch", "").strip()
-    chicken_from_raw = request.GET.get("chicken_from", "").strip()
-    chicken_to_raw = request.GET.get("chicken_to", "").strip()
-    chicken_branch_id = request.GET.get("chicken_branch", "").strip()
-    food_panda_from_raw = request.GET.get("food_panda_from", "").strip()
-    food_panda_to_raw = request.GET.get("food_panda_to", "").strip()
-    food_panda_branch_id = request.GET.get("food_panda_branch", "").strip()
-    sheikh_bill_from_raw = request.GET.get("sheikh_bill_from", "").strip()
-    sheikh_bill_to_raw = request.GET.get("sheikh_bill_to", "").strip()
-    sheikh_bill_branch_id = request.GET.get("sheikh_bill_branch", "").strip()
+    report_type = request.GET.get("report_type", "sales").strip()
+    report_from_raw = request.GET.get("report_from", "").strip()
+    report_to_raw = request.GET.get("report_to", "").strip()
+    report_branch_id = request.GET.get("report_branch", "").strip()
 
     balance_from = parse_date(balance_from_raw) if balance_from_raw else None
     balance_to = parse_date(balance_to_raw) if balance_to_raw else None
-    chicken_from = parse_date(chicken_from_raw) if chicken_from_raw else None
-    chicken_to = parse_date(chicken_to_raw) if chicken_to_raw else None
-    food_panda_from = parse_date(food_panda_from_raw) if food_panda_from_raw else None
-    food_panda_to = parse_date(food_panda_to_raw) if food_panda_to_raw else None
-    sheikh_bill_from = parse_date(sheikh_bill_from_raw) if sheikh_bill_from_raw else None
-    sheikh_bill_to = parse_date(sheikh_bill_to_raw) if sheikh_bill_to_raw else None
+    report_from = parse_date(report_from_raw) if report_from_raw else None
+    report_to = parse_date(report_to_raw) if report_to_raw else None
 
     balance_summaries = StockSheet.objects.none()
     total_balance = Decimal("0")
-    total_chicken_purchase = Decimal("0")
-    total_food_panda = Decimal("0")
-    total_sheikh_bill_purchase = Decimal("0")
-    chicken_summaries = StockSheet.objects.none()
-    food_panda_summaries = StockSheet.objects.none()
-    sheikh_bill_summaries = StockSheet.objects.none()
+    if report_type not in dict(REPORT_CHOICES):
+        report_type = "sales"
+    report_summaries = StockSheet.objects.none()
+    accounting_range_report = build_accounting_range_report(report_summaries, report_type)
     overall_summary_count = StockSheet.objects.count()
 
     if balance_from and balance_to:
@@ -254,41 +351,13 @@ def owner_balance_view(request):
         )
         total_balance = sum_summary_values(balance_summaries, lambda summary: summary.balance)
 
-    if chicken_from and chicken_to:
-        chicken_summaries = get_summary_range(
-            chicken_branch_id,
-            chicken_from,
-            chicken_to,
+    if report_from and report_to:
+        report_summaries = get_summary_range(
+            report_branch_id,
+            report_from,
+            report_to,
         )
-        total_chicken_purchase = sum_summary_values(
-            chicken_summaries,
-            lambda summary: summary.market_purchases.get("values", {}).get("chicken", "0"),
-            clamp_non_negative=True,
-        )
-
-    if food_panda_from and food_panda_to:
-        food_panda_summaries = get_summary_range(
-            food_panda_branch_id,
-            food_panda_from,
-            food_panda_to,
-        )
-        total_food_panda = sum_summary_values(
-            food_panda_summaries,
-            lambda summary: summary.total_summary.get("values", {}).get("food_panda", "0"),
-            clamp_non_negative=True,
-        )
-
-    if sheikh_bill_from and sheikh_bill_to:
-        sheikh_bill_summaries = get_summary_range(
-            sheikh_bill_branch_id,
-            sheikh_bill_from,
-            sheikh_bill_to,
-        )
-        total_sheikh_bill_purchase = sum_summary_values(
-            sheikh_bill_summaries,
-            lambda summary: summary.market_purchases.get("values", {}).get("sheikh_bill", "0"),
-            clamp_non_negative=True,
-        )
+        accounting_range_report = build_accounting_range_report(report_summaries, report_type)
 
     return render(
         request,
@@ -298,23 +367,15 @@ def owner_balance_view(request):
             "balance_from": balance_from_raw,
             "balance_to": balance_to_raw,
             "balance_branch_id": parse_optional_int(balance_branch_id),
-            "chicken_from": chicken_from_raw,
-            "chicken_to": chicken_to_raw,
-            "chicken_branch_id": parse_optional_int(chicken_branch_id),
-            "food_panda_from": food_panda_from_raw,
-            "food_panda_to": food_panda_to_raw,
-            "food_panda_branch_id": parse_optional_int(food_panda_branch_id),
-            "sheikh_bill_from": sheikh_bill_from_raw,
-            "sheikh_bill_to": sheikh_bill_to_raw,
-            "sheikh_bill_branch_id": parse_optional_int(sheikh_bill_branch_id),
+            "report_choices": REPORT_CHOICES,
+            "report_type": report_type,
+            "report_from": report_from_raw,
+            "report_to": report_to_raw,
+            "report_branch_id": parse_optional_int(report_branch_id),
             "balance_summaries": balance_summaries,
-            "chicken_summaries": chicken_summaries,
-            "food_panda_summaries": food_panda_summaries,
-            "sheikh_bill_summaries": sheikh_bill_summaries,
+            "report_summaries": report_summaries,
+            "accounting_range_report": accounting_range_report,
             "total_balance": total_balance,
-            "total_chicken_purchase": total_chicken_purchase,
-            "total_food_panda": total_food_panda,
-            "total_sheikh_bill_purchase": total_sheikh_bill_purchase,
             "overall_summary_count": overall_summary_count,
         },
     )
