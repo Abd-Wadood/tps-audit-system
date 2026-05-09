@@ -3,6 +3,7 @@ from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 
+from stock_register.forms import StockRegisterItemForm
 from stocks.models import Branch, Item
 from .constants import ROLE_CHOICES
 
@@ -76,3 +77,7 @@ class OwnerStockItemForm(forms.ModelForm):
         if Item.objects.filter(name__iexact=name).exists():
             raise forms.ValidationError("This stock item already exists.")
         return name
+
+
+class OwnerStockRegisterItemForm(StockRegisterItemForm):
+    pass

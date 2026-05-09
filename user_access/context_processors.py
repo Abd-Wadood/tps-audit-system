@@ -7,6 +7,7 @@ def role_context(request):
             "role_can_stock": False,
             "role_can_accounting": False,
             "role_can_reports": False,
+            "role_can_stock_register": False,
         }
 
     flags = role_flags(request.user)
@@ -14,5 +15,5 @@ def role_context(request):
         "role_can_stock": flags["is_stock_user"] or flags["is_superuser"],
         "role_can_accounting": flags["is_accounting_user"] or flags["is_superuser"],
         "role_can_reports": flags["is_report_user"] or flags["is_superuser"],
+        "role_can_stock_register": flags["is_stock_registrar"] or flags["is_superuser"],
     }
-

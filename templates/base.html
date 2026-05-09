@@ -28,6 +28,9 @@
                 {% if role_can_stock %}
                 <a href="{% url 'stock_control:stock_sheet' %}">Stock Sheet</a>
                 {% endif %}
+                {% if role_can_stock_register %}
+                <a href="{% url 'stock_register:register' %}">Stock Register</a>
+                {% endif %}
                 {% if role_can_accounting %}
                 {% if request.user.is_superuser or role_can_reports %}
                 <a href="{% url 'accounting_app:summary_list' %}">Account Summaries</a>

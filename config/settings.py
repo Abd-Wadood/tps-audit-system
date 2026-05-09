@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     # Your apps
     'user_access',
     'stock_control',
+    'stock_register',
     'accounting_app',
     'reports_center',
     'stocks',

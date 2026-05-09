@@ -3,17 +3,19 @@ from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 from django.contrib.auth.models import Group, User
 from django.contrib.auth.views import LoginView
+from django.db.models import ProtectedError
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.dateparse import parse_date
 
+from stock_register.models import Item as StockRegisterItem
 from stock_control.sheet_logic import ensure_seed_data
 from accounting_app.account_summary_calculations import SECTION_CONFIG
 from stocks.models import Branch, Item, StockSheet
 from .access import get_branch_aware_url, get_user_branch_id
 from .constants import ACCOUNTING_ROLE, REPORT_ROLE, STOCK_ROLE
-from .forms import OwnerStockItemForm, OwnerUserCreateForm, OwnerUserRoleForm, SignInForm
+from .forms import OwnerStockItemForm, OwnerStockRegisterItemForm, OwnerUserCreateForm, OwnerUserRoleForm, SignInForm
 from .models import UserWorkspace
 from .permissions import role_flags
 from .pdf import build_accounting_range_pdf
@@ -205,6 +207,8 @@ class WorkspaceLoginView(LoginView):
             return reverse("user_access:workspace_home")
         if flags["is_report_user"]:
             return reverse("reports_center:dashboard")
+        if flags["is_stock_registrar"] and not (flags["is_stock_user"] or flags["is_accounting_user"] or flags["is_report_user"]):
+            return get_branch_aware_url("stock_register:register", self.request.user)
         if flags["is_stock_user"] and not flags["is_accounting_user"]:
             return get_branch_aware_url("stock_control:stock_sheet", self.request.user)
         if flags["is_accounting_user"] and not flags["is_stock_user"]:
@@ -222,9 +226,19 @@ def workspace_home(request):
 
     flags = role_flags(request.user)
     role_count = sum(
-        1 for allowed in [flags["is_stock_user"], flags["is_accounting_user"], flags["is_report_user"], flags["is_superuser"]] if allowed
+        1
+        for allowed in [
+            flags["is_stock_user"],
+            flags["is_accounting_user"],
+            flags["is_report_user"],
+            flags["is_stock_registrar"],
+            flags["is_superuser"],
+        ]
+        if allowed
     )
     if not flags["is_superuser"] and role_count == 1:
+        if flags["is_stock_registrar"]:
+            return redirect(get_branch_aware_url("stock_register:register", request.user))
         if flags["is_stock_user"]:
             return redirect(get_branch_aware_url("stock_control:stock_sheet", request.user))
         if flags["is_accounting_user"]:
@@ -237,7 +251,13 @@ def workspace_home(request):
         "user_access/workspace_home.html",
         {
             "flags": flags,
-            "has_any_workspace_access": flags["is_superuser"] or flags["is_stock_user"] or flags["is_accounting_user"] or flags["is_report_user"],
+            "has_any_workspace_access": (
+                flags["is_superuser"]
+                or flags["is_stock_user"]
+                or flags["is_accounting_user"]
+                or flags["is_report_user"]
+                or flags["is_stock_registrar"]
+            ),
         },
     )
 
@@ -251,13 +271,21 @@ def owner_user_management_view(request):
     ensure_seed_data()
     create_form = OwnerUserCreateForm()
     stock_item_form = OwnerStockItemForm()
+    stock_register_item_form = OwnerStockRegisterItemForm()
     stock_item_query = request.GET.get("item_query", "").strip()
+    stock_register_item_query = request.GET.get("register_item_query", "").strip()
     if request.method == "POST":
         action = request.POST.get("action")
         redirect_url = reverse("user_access:user_management")
-        redirect_query = request.POST.get("item_query", "").strip()
-        if redirect_query:
-            redirect_url = f"{redirect_url}?item_query={redirect_query}"
+        redirect_params = []
+        redirect_item_query = request.POST.get("item_query", "").strip()
+        redirect_register_item_query = request.POST.get("register_item_query", "").strip()
+        if redirect_item_query:
+            redirect_params.append(f"item_query={redirect_item_query}")
+        if redirect_register_item_query:
+            redirect_params.append(f"register_item_query={redirect_register_item_query}")
+        if redirect_params:
+            redirect_url = f"{redirect_url}?{'&'.join(redirect_params)}"
         if action == "create_user":
             create_form = OwnerUserCreateForm(request.POST)
             if create_form.is_valid():
@@ -306,11 +334,30 @@ def owner_user_management_view(request):
             item.delete()
             messages.success(request, f"Stock item {item_name} removed successfully.")
             return redirect(redirect_url)
+        elif action == "create_register_item":
+            stock_register_item_form = OwnerStockRegisterItemForm(request.POST)
+            if stock_register_item_form.is_valid():
+                item = stock_register_item_form.save()
+                messages.success(request, f"Stock register item {item.name} added successfully.")
+                return redirect(redirect_url)
+        elif action == "delete_register_item":
+            item = get_object_or_404(StockRegisterItem, pk=request.POST.get("register_item_id"))
+            item_name = item.name
+            try:
+                item.delete()
+            except ProtectedError:
+                messages.error(request, f"Stock register item {item_name} has transaction history and cannot be removed.")
+            else:
+                messages.success(request, f"Stock register item {item_name} removed successfully.")
+            return redirect(redirect_url)
 
     managed_users = User.objects.select_related("workspace__branch").order_by("username")
     stock_items = Item.objects.none()
     if stock_item_query:
         stock_items = Item.objects.filter(name__icontains=stock_item_query).order_by("name")
+    stock_register_items = StockRegisterItem.objects.none()
+    if stock_register_item_query:
+        stock_register_items = StockRegisterItem.objects.select_related("branch").filter(name__icontains=stock_register_item_query).order_by("branch__name", "name")
     user_role_forms = []
     for managed_user in managed_users:
         initial_role = managed_user.groups.values_list("name", flat=True).first() or STOCK_ROLE
@@ -333,8 +380,11 @@ def owner_user_management_view(request):
         {
             "create_form": create_form,
             "stock_item_form": stock_item_form,
+            "stock_register_item_form": stock_register_item_form,
             "stock_items": stock_items,
+            "stock_register_items": stock_register_items,
             "stock_item_query": stock_item_query,
+            "stock_register_item_query": stock_register_item_query,
             "user_role_forms": user_role_forms,
         },
     )

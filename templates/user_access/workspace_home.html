@@ -51,6 +51,24 @@
     </section>
     {% endif %}
 
+    {% if role_can_stock_register %}
+    <section class="workspace-section">
+        <div class="section-head">
+            <div>
+                <p class="eyebrow">Inventory</p>
+                <h2>Stock Register</h2>
+            </div>
+        </div>
+        <div class="workspace-grid">
+            <a class="workspace-panel workspace-panel-stock" href="{% url 'stock_register:register' %}">
+                <span class="workspace-kicker">Register</span>
+                <strong>Stock Register</strong>
+                <p>Record rates, received stock, issued stock, remaining balance, and stock in hand.</p>
+            </a>
+        </div>
+    </section>
+    {% endif %}
+
     {% if role_can_accounting or request.user.is_superuser or role_can_reports %}
     <section class="workspace-section">
         <div class="section-head">
@@ -122,7 +140,7 @@
 <section class="card">
     <p class="eyebrow">No Access Assigned</p>
     <h2>Ask the owner or admin to assign your role</h2>
-    <p class="lead">Your login works, but no workspace section has been assigned to this user yet. Ask the owner/admin to open the workspace user management screen and assign one of these roles: `stock_updater`, `accounting_user`, or `report_admin`.</p>
+    <p class="lead">Your login works, but no workspace section has been assigned to this user yet. Ask the owner/admin to open the workspace user management screen and assign one of these roles: `stock_updater`, `stock_registrar`, `accounting_user`, or `report_admin`.</p>
 </section>
 {% endif %}
 {% endblock %}

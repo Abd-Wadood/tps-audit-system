@@ -10,6 +10,7 @@ urlpatterns = [
     path("accounts/logout/", LogoutView.as_view(), name="logout"),
     path("", include("user_access.urls")),
     path("stock/", include("stock_control.urls")),
+    path("stock-register/", include("stock_register.urls")),
     path("accounting/", include("accounting_app.urls")),
     path("reports/", include("reports_center.urls")),
 ]

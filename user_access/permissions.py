@@ -3,7 +3,7 @@ from functools import wraps
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 
-from .constants import ACCOUNTING_ROLE, REPORT_ROLE, STOCK_ROLE
+from .constants import ACCOUNTING_ROLE, REPORT_ROLE, STOCK_REGISTRAR_ROLE, STOCK_ROLE
 
 
 def has_any_role(user, roles):
@@ -34,6 +34,7 @@ def role_flags(user):
             "is_stock_user": False,
             "is_accounting_user": False,
             "is_report_user": False,
+            "is_stock_registrar": False,
             "is_superuser": False,
         }
 
@@ -41,5 +42,6 @@ def role_flags(user):
         "is_stock_user": user.groups.filter(name=STOCK_ROLE).exists(),
         "is_accounting_user": user.groups.filter(name=ACCOUNTING_ROLE).exists(),
         "is_report_user": user.groups.filter(name=REPORT_ROLE).exists(),
+        "is_stock_registrar": user.groups.filter(name=STOCK_REGISTRAR_ROLE).exists(),
         "is_superuser": getattr(user, "is_superuser", False),
     }

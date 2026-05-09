@@ -36,6 +36,7 @@
         <h2>Access Types</h2>
         <div class="input-list">
             <div class="line-row readonly-row"><span>`stock_updater`</span><strong>Stock Sheet Only</strong></div>
+            <div class="line-row readonly-row"><span>`stock_registrar`</span><strong>Stock Register Only</strong></div>
             <div class="line-row readonly-row"><span>`accounting_user`</span><strong>New Summary Only</strong></div>
             <div class="line-row readonly-row"><span>`report_admin`</span><strong>Reports Only</strong></div>
             <div class="line-row readonly-row"><span>Owner/Admin</span><strong>All Sections</strong></div>
@@ -55,6 +56,7 @@
         <form method="post" class="form-grid">
             {% csrf_token %}
             <input type="hidden" name="action" value="create_item">
+            <input type="hidden" name="register_item_query" value="{{ stock_register_item_query }}">
             <div>
                 <label for="{{ stock_item_form.name.id_for_label }}">{{ stock_item_form.name.label }}</label>
                 {{ stock_item_form.name }}
@@ -68,6 +70,7 @@
         <p class="eyebrow">Find Item</p>
         <h2>Search Stock Sheet Items</h2>
         <form method="get" class="form-grid">
+            <input type="hidden" name="register_item_query" value="{{ stock_register_item_query }}">
             <div>
                 <label for="item_query">Item Name</label>
                 <input id="item_query" name="item_query" value="{{ stock_item_query }}" placeholder="Search item by name">
@@ -85,6 +88,7 @@
                     <input type="hidden" name="action" value="delete_item">
                     <input type="hidden" name="item_id" value="{{ stock_item.id }}">
                     <input type="hidden" name="item_query" value="{{ stock_item_query }}">
+                    <input type="hidden" name="register_item_query" value="{{ stock_register_item_query }}">
                     <button type="submit" class="ghost-button">Remove</button>
                 </form>
             </div>
@@ -93,6 +97,73 @@
             {% endfor %}
             {% else %}
             <p class="lead">Search by item name to find and remove a stock sheet item.</p>
+            {% endif %}
+        </div>
+    </aside>
+</section>
+
+<section class="summary-shell">
+    <section class="card">
+        <div class="section-head">
+            <div>
+                <p class="eyebrow">Register Setup</p>
+                <h2>Add Stock Register Item</h2>
+            </div>
+        </div>
+        <form method="post" class="form-grid">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_register_item">
+            <input type="hidden" name="item_query" value="{{ stock_item_query }}">
+            <div>
+                <label for="{{ stock_register_item_form.branch.id_for_label }}">{{ stock_register_item_form.branch.label }}</label>
+                {{ stock_register_item_form.branch }}
+                {{ stock_register_item_form.branch.errors }}
+            </div>
+            <div>
+                <label for="{{ stock_register_item_form.name.id_for_label }}">{{ stock_register_item_form.name.label }}</label>
+                {{ stock_register_item_form.name }}
+                {{ stock_register_item_form.name.errors }}
+            </div>
+            <div>
+                <label for="{{ stock_register_item_form.unit.id_for_label }}">{{ stock_register_item_form.unit.label }}</label>
+                {{ stock_register_item_form.unit }}
+                {{ stock_register_item_form.unit.errors }}
+            </div>
+            <button type="submit" class="primary-button">Add Register Item</button>
+        </form>
+    </section>
+
+    <aside class="card account-summary-card">
+        <p class="eyebrow">Find Register Item</p>
+        <h2>Search Stock Register Items</h2>
+        <form method="get" class="form-grid">
+            <input type="hidden" name="item_query" value="{{ stock_item_query }}">
+            <div>
+                <label for="register_item_query">Register Item Name</label>
+                <input id="register_item_query" name="register_item_query" value="{{ stock_register_item_query }}" placeholder="Search register item by name">
+            </div>
+            <button type="submit" class="ghost-button">Search Register Item</button>
+        </form>
+        <div class="input-list">
+            {% if stock_register_item_query %}
+            {% for stock_register_item in stock_register_items %}
+            <div class="line-row readonly-row">
+                <span>{{ forloop.counter }}</span>
+                <strong>{{ stock_register_item.branch.name }} | {{ stock_register_item.name }} | {{ stock_register_item.current_stock }} {{ stock_register_item.unit }}</strong>
+                <form method="post" class="role-form-inline" onsubmit="return confirm('Remove stock register item {{ stock_register_item.name }}? Items with transaction history are protected.');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete_register_item">
+                    <input type="hidden" name="register_item_id" value="{{ stock_register_item.id }}">
+                    <input type="hidden" name="item_query" value="{{ stock_item_query }}">
+                    <input type="hidden" name="register_item_query" value="{{ stock_register_item_query }}">
+                    <button type="submit" class="ghost-button">Remove</button>
+                </form>
+            </div>
+            {% empty %}
+            <p class="lead">No stock register items match "{{ stock_register_item_query }}".</p>
+            {% endfor %}
+            {% else %}
+            <p class="lead">Search by register item name to find and remove a stock register item.</p>
             {% endif %}
         </div>
     </aside>

@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}Stock Register{% endblock %}
+{% block content %}
+<section class="hero">
+    <div>
+        <p class="eyebrow">Stock Register</p>
+        <h1>Store room stock movement</h1>
+        <p class="lead">Record supplier receipts and kitchen issues. Balances are calculated by the backend from transaction history.</p>
+    </div>
+</section>
+
+<section class="stock-toolbar card">
+    <form method="get" class="toolbar-form">
+        <div>
+            <label for="branch">Branch Store</label>
+            <select id="branch" name="branch">
+                {% for available_branch in branches %}
+                <option value="{{ available_branch.id }}" {% if available_branch.id == branch.id %}selected{% endif %}>{{ available_branch.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="toolbar-submit">
+            <button type="submit" class="ghost-button">Load Store</button>
+        </div>
+    </form>
+</section>
+
+<section class="summary-shell">
+    <section class="card">
+        <div class="section-head">
+            <div>
+                <p class="eyebrow">Movement</p>
+                <h2>New Transaction</h2>
+            </div>
+        </div>
+        <form method="post" class="form-grid">
+            {% csrf_token %}
+            <input type="hidden" name="branch" value="{{ branch.id }}">
+            {{ form.non_field_errors }}
+            <div>
+                <label for="{{ form.item.id_for_label }}">Item</label>
+                {{ form.item }}
+                {{ form.item.errors }}
+            </div>
+            <div>
+                <label for="{{ form.transaction_type.id_for_label }}">Action</label>
+                {{ form.transaction_type }}
+                {{ form.transaction_type.errors }}
+            </div>
+            <div>
+                <label for="{{ form.quantity.id_for_label }}">Quantity</label>
+                {{ form.quantity }}
+                {{ form.quantity.errors }}
+            </div>
+            <div>
+                <label for="{{ form.rate.id_for_label }}">Rate Per Unit</label>
+                {{ form.rate }}
+                {{ form.rate.errors }}
+            </div>
+            <div>
+                <label for="{{ form.received_from.id_for_label }}">Supplier</label>
+                {{ form.received_from }}
+                {{ form.received_from.errors }}
+            </div>
+            <div>
+                <label for="{{ form.issued_to.id_for_label }}">Kitchen / Department</label>
+                {{ form.issued_to }}
+                {{ form.issued_to.errors }}
+            </div>
+            <div>
+                <label for="{{ form.notes.id_for_label }}">Notes</label>
+                {{ form.notes }}
+                {{ form.notes.errors }}
+            </div>
+            <button type="submit" class="primary-button">Save Transaction</button>
+        </form>
+    </section>
+
+    <aside class="card account-summary-card">
+        <p class="eyebrow">Inventory</p>
+        <h2>{{ branch.name }} Store</h2>
+        <div class="input-list">
+            {% for item in items %}
+            <div class="line-row readonly-row">
+                <span>{{ item.name }}</span>
+                <strong>{{ item.current_stock }} {{ item.unit }}</strong>
+            </div>
+            {% empty %}
+            <p class="lead">Add stock register items from User Management before recording transactions.</p>
+            {% endfor %}
+        </div>
+    </aside>
+</section>
+
+<section class="card">
+    <div class="section-head">
+        <div>
+            <p class="eyebrow">Ledger</p>
+            <h2>Transaction History</h2>
+        </div>
+    </div>
+    <div class="table-card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Item</th>
+                    <th>Action</th>
+                    <th>Quantity</th>
+                    <th>Rate Per Unit</th>
+                    <th>Total Amount</th>
+                    <th>Supplier / Kitchen</th>
+                    <th>Balance After</th>
+                    <th>Notes</th>
+                    <th>By</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transaction in transactions %}
+                <tr>
+                    <td>{{ transaction.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>{{ transaction.item.name }} <span class="helptext">{{ transaction.item.branch.name }}</span></td>
+                    <td>
+                        {% if transaction.transaction_type == "IN" %}
+                        <span class="calc-pill success-pill">IN</span>
+                        {% else %}
+                        <span class="calc-pill warn-pill">OUT</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ transaction.quantity }} {{ transaction.item.unit }}</td>
+                    <td>{{ transaction.rate|default:"-" }}</td>
+                    <td>{{ transaction.total_amount }}</td>
+                    <td>
+                        {% if transaction.transaction_type == "IN" %}
+                        {{ transaction.received_from|default:"-" }}
+                        {% else %}
+                        {{ transaction.issued_to|default:"-" }}
+                        {% endif %}
+                    </td>
+                    <td>{{ transaction.balance_after }} {{ transaction.item.unit }}</td>
+                    <td>{{ transaction.notes|default:"-" }}</td>
+                    <td>
+                        {% if transaction.created_by %}
+                        {{ transaction.created_by.get_full_name|default:transaction.created_by.username }}
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="10">No stock movements recorded yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
