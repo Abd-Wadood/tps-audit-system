@@ -150,7 +150,7 @@
             <div class="line-row readonly-row">
                 <span>{{ forloop.counter }}</span>
                 <strong>{{ stock_register_item.branch.name }} | {{ stock_register_item.name }} | {{ stock_register_item.current_stock }} {{ stock_register_item.unit }}</strong>
-                <form method="post" class="role-form-inline" onsubmit="return confirm('Remove stock register item {{ stock_register_item.name }}? Items with transaction history are protected.');">
+                <form method="post" class="role-form-inline" onsubmit="return confirm('Remove stock register item {{ stock_register_item.name }}? This will also delete linked register transactions.');">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="delete_register_item">
                     <input type="hidden" name="register_item_id" value="{{ stock_register_item.id }}">

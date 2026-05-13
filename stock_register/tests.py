@@ -94,6 +94,38 @@ class StockRegisterTests(TestCase):
         transaction = StockTransaction.objects.get()
         self.assertEqual(transaction.total_amount, Decimal("1200.00"))
 
+    def test_stock_out_from_page_does_not_need_rate_or_supplier(self):
+        process_stock_transaction(
+            self.item.pk,
+            StockTransaction.IN,
+            Decimal("25.00"),
+            self.user,
+            rate=Decimal("180.00"),
+            received_from="Supplier A",
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.post(
+            reverse("stock_register:register"),
+            {
+                "branch": self.branch.pk,
+                "item": self.item.pk,
+                "transaction_type": StockTransaction.OUT,
+                "quantity": "5",
+                "rate": "999",
+                "received_from": "Supplier A",
+                "issued_to": "Kitchen",
+                "notes": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        movement = StockTransaction.objects.filter(transaction_type=StockTransaction.OUT).get()
+        self.assertIsNone(movement.rate)
+        self.assertEqual(movement.total_amount, Decimal("0.00"))
+        self.assertEqual(movement.received_from, "")
+        self.assertEqual(movement.issued_to, "Kitchen")
+
     def test_page_filters_items_to_selected_branch(self):
         self.client.force_login(self.user)
         response = self.client.get(reverse("stock_register:register"), {"branch": self.branch.pk})

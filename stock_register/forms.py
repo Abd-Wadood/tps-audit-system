@@ -33,6 +33,9 @@ class StockTransactionForm(forms.Form):
             self.add_error("received_from", "Supplier name is required for stock in.")
         if transaction_type == StockTransaction.OUT and not issued_to:
             self.add_error("issued_to", "Kitchen or department name is required for stock out.")
+        if transaction_type == StockTransaction.OUT:
+            cleaned_data["rate"] = None
+            cleaned_data["received_from"] = ""
         return cleaned_data
 
 

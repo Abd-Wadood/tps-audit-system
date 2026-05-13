@@ -3,7 +3,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib import messages
 from django.contrib.auth.models import Group, User
 from django.contrib.auth.views import LoginView
-from django.db.models import ProtectedError
+from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -343,10 +343,12 @@ def owner_user_management_view(request):
         elif action == "delete_register_item":
             item = get_object_or_404(StockRegisterItem, pk=request.POST.get("register_item_id"))
             item_name = item.name
-            try:
+            with transaction.atomic():
+                movement_count = item.transactions.count()
+                item.transactions.all().delete()
                 item.delete()
-            except ProtectedError:
-                messages.error(request, f"Stock register item {item_name} has transaction history and cannot be removed.")
+            if movement_count:
+                messages.success(request, f"Stock register item {item_name} and {movement_count} linked transaction(s) removed successfully.")
             else:
                 messages.success(request, f"Stock register item {item_name} removed successfully.")
             return redirect(redirect_url)

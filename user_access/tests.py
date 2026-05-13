@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
+from stock_register.models import Item as StockRegisterItem, StockTransaction
 from stocks.models import Branch, DailyStock, Item, StockEntry
 
 
@@ -96,3 +97,38 @@ class OwnerStockItemManagementTests(TestCase):
 
         self.assertContains(response, "Mozzarella Cheese")
         self.assertNotContains(response, "Paneer Cubes")
+
+    def test_owner_can_remove_stock_register_item_that_has_transactions(self):
+        owner = User.objects.create_user(
+            username="owner-register-protect",
+            password="testpass123",
+            is_superuser=True,
+            is_staff=True,
+        )
+        branch = Branch.objects.create(name="Register Branch")
+        item = StockRegisterItem.objects.create(branch=branch, name="Rice", unit="kg", current_stock="10.00")
+        StockTransaction.objects.create(
+            item=item,
+            transaction_type=StockTransaction.IN,
+            quantity="10.00",
+            rate="100.00",
+            total_amount="1000.00",
+            balance_after="10.00",
+            received_from="Supplier A",
+            created_by=owner,
+        )
+        self.client.force_login(owner)
+
+        response = self.client.post(
+            reverse("user_access:user_management"),
+            {
+                "action": "delete_register_item",
+                "register_item_id": item.id,
+                "register_item_query": "rice",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(StockRegisterItem.objects.filter(pk=item.pk).exists())
+        self.assertFalse(StockTransaction.objects.filter(item_id=item.pk).exists())
