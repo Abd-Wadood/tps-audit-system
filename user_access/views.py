@@ -18,7 +18,7 @@ from .constants import ACCOUNTING_ROLE, REPORT_ROLE, STOCK_ROLE
 from .forms import OwnerStockItemForm, OwnerStockRegisterItemForm, OwnerUserCreateForm, OwnerUserRoleForm, SignInForm
 from .models import UserWorkspace
 from .permissions import role_flags
-from .pdf import build_accounting_range_pdf
+from .pdf import build_accounting_range_pdf, build_sheikh_bill_pdf
 
 
 def parse_non_negative_decimal(value):
@@ -190,6 +190,17 @@ def get_branch_label(branch_id):
         return "All Branches"
     branch = Branch.objects.filter(pk=branch_id).first()
     return branch.name if branch else "Selected Branch"
+
+
+def build_sheikh_bill_rows(summaries):
+    rows = []
+    for summary in summaries:
+        amount = parse_non_negative_decimal(
+            (summary.market_purchases or {}).get("values", {}).get("sheikh_bill", "0")
+        )
+        if amount > 0:
+            rows.append({"summary": summary, "amount": amount})
+    return rows
 
 
 class WorkspaceLoginView(LoginView):
@@ -406,11 +417,16 @@ def owner_balance_view(request):
     report_from_raw = request.GET.get("report_from", "").strip()
     report_to_raw = request.GET.get("report_to", "").strip()
     report_branch_id = request.GET.get("report_branch", "").strip()
+    sheikh_from_raw = request.GET.get("sheikh_from", "").strip()
+    sheikh_to_raw = request.GET.get("sheikh_to", "").strip()
+    sheikh_branch_id = request.GET.get("sheikh_branch", "").strip()
 
     balance_from = parse_date(balance_from_raw) if balance_from_raw else None
     balance_to = parse_date(balance_to_raw) if balance_to_raw else None
     report_from = parse_date(report_from_raw) if report_from_raw else None
     report_to = parse_date(report_to_raw) if report_to_raw else None
+    sheikh_from = parse_date(sheikh_from_raw) if sheikh_from_raw else None
+    sheikh_to = parse_date(sheikh_to_raw) if sheikh_to_raw else None
 
     balance_summaries = StockSheet.objects.none()
     total_balance = Decimal("0")
@@ -419,6 +435,8 @@ def owner_balance_view(request):
     report_summaries = StockSheet.objects.none()
     accounting_range_report = build_accounting_range_report(report_summaries, report_type)
     overall_summary_count = StockSheet.objects.count()
+    sheikh_bill_rows = []
+    total_sheikh_bill = Decimal("0")
 
     if balance_from and balance_to:
         balance_summaries = get_summary_range(
@@ -435,6 +453,12 @@ def owner_balance_view(request):
             report_to,
         )
         accounting_range_report = build_accounting_range_report(report_summaries, report_type)
+
+    if sheikh_from and sheikh_to:
+        sheikh_bill_rows = build_sheikh_bill_rows(
+            get_summary_range(sheikh_branch_id, sheikh_from, sheikh_to)
+        )
+        total_sheikh_bill = sum((row["amount"] for row in sheikh_bill_rows), Decimal("0"))
 
     return render(
         request,
@@ -454,8 +478,47 @@ def owner_balance_view(request):
             "accounting_range_report": accounting_range_report,
             "total_balance": total_balance,
             "overall_summary_count": overall_summary_count,
+            "sheikh_from": sheikh_from_raw,
+            "sheikh_to": sheikh_to_raw,
+            "sheikh_branch_id": parse_optional_int(sheikh_branch_id),
+            "sheikh_bill_rows": sheikh_bill_rows,
+            "total_sheikh_bill": total_sheikh_bill,
         },
     )
+
+
+def sheikh_bill_pdf_view(request):
+    if not request.user.is_authenticated:
+        return redirect("login")
+    if not request.user.is_superuser:
+        return redirect("user_access:workspace_home")
+
+    date_from_raw = request.GET.get("sheikh_from", "").strip()
+    date_to_raw = request.GET.get("sheikh_to", "").strip()
+    branch_id = request.GET.get("sheikh_branch", "").strip()
+    date_from = parse_date(date_from_raw) if date_from_raw else None
+    date_to = parse_date(date_to_raw) if date_to_raw else None
+
+    if not date_from or not date_to:
+        messages.info(request, "Choose a from date and to date before downloading the Sheikh bill PDF.")
+        return redirect(f"{reverse('user_access:balance_overview')}#sheikh-bill-section")
+
+    rows = build_sheikh_bill_rows(get_summary_range(branch_id, date_from, date_to))
+    branch_label = get_branch_label(branch_id)
+    response = HttpResponse(content_type="application/pdf")
+    filename_branch = branch_label.lower().replace(" ", "-")
+    response["Content-Disposition"] = (
+        f'attachment; filename="sheikh-bills-{filename_branch}-{date_from:%Y%m%d}-{date_to:%Y%m%d}.pdf"'
+    )
+    build_sheikh_bill_pdf(
+        buffer=response,
+        rows=rows,
+        branch_label=branch_label,
+        date_from=date_from,
+        date_to=date_to,
+        generated_by=request.user.get_full_name() or request.user.username,
+    )
+    return response
 
 
 def accounting_range_pdf_view(request):

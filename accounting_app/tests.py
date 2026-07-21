@@ -453,6 +453,79 @@ class AccountingSummaryFlowTests(TestCase):
         self.assertContains(response, "Total Purchase")
         self.assertContains(response, "93")
 
+    def test_owner_can_filter_sheikh_bills_by_branch_and_date(self):
+        other_branch = Branch.objects.create(name="Bahria Sheikh")
+        StockSheet.objects.create(
+            title="Included Sheikh Bill",
+            reference_number="ACC-SHEIKH-IN",
+            sheet_date=date(2026, 5, 10),
+            branch=self.branch,
+            market_purchases={"values": {"sheikh_bill": "125.50"}, "custom_rows": []},
+            created_by=self.user,
+        )
+        StockSheet.objects.create(
+            title="Other Branch Sheikh Bill",
+            reference_number="ACC-SHEIKH-BRANCH",
+            sheet_date=date(2026, 5, 11),
+            branch=other_branch,
+            market_purchases={"values": {"sheikh_bill": "300"}, "custom_rows": []},
+            created_by=self.user,
+        )
+        StockSheet.objects.create(
+            title="Outside Date Sheikh Bill",
+            reference_number="ACC-SHEIKH-OUT",
+            sheet_date=date(2026, 6, 1),
+            branch=self.branch,
+            market_purchases={"values": {"sheikh_bill": "500"}, "custom_rows": []},
+            created_by=self.user,
+        )
+
+        response = self.client.get(
+            reverse("user_access:balance_overview"),
+            {
+                "sheikh_branch": str(self.branch.pk),
+                "sheikh_from": "2026-05-01",
+                "sheikh_to": "2026-05-31",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Sheikh Bills By Date")
+        self.assertContains(response, "ACC-SHEIKH-IN")
+        self.assertContains(response, "125.50")
+        self.assertNotContains(response, "ACC-SHEIKH-BRANCH")
+        self.assertNotContains(response, "ACC-SHEIKH-OUT")
+        self.assertEqual(response.context["total_sheikh_bill"], Decimal("125.50"))
+
+    def test_owner_can_download_sheikh_bill_pdf(self):
+        StockSheet.objects.create(
+            title="Sheikh PDF Summary",
+            reference_number="ACC-SHEIKH-PDF",
+            sheet_date=date(2026, 5, 10),
+            branch=self.branch,
+            market_purchases={"values": {"sheikh_bill": "75"}, "custom_rows": []},
+            created_by=self.user,
+        )
+
+        response = self.client.get(
+            reverse("user_access:sheikh_bill_pdf"),
+            {
+                "sheikh_branch": str(self.branch.pk),
+                "sheikh_from": "2026-05-01",
+                "sheikh_to": "2026-05-31",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("sheikh-bills-township-20260501-20260531.pdf", response["Content-Disposition"])
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_sheikh_bill_pdf_requires_dates(self):
+        response = self.client.get(reverse("user_access:sheikh_bill_pdf"))
+
+        self.assertRedirects(response, f"{reverse('user_access:balance_overview')}#sheikh-bill-section")
+
     def test_owner_can_download_accounting_range_pdf(self):
         StockSheet.objects.create(
             title="PDF Range Summary",

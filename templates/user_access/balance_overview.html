@@ -94,6 +94,82 @@
     {% endif %}
 </section>
 
+<section class="card" id="sheikh-bill-section">
+    <div class="section-head">
+        <div>
+            <p class="eyebrow">Sheikh Bill</p>
+            <h2>Sheikh Bills By Date</h2>
+        </div>
+    </div>
+    <form method="get" action="{% url 'user_access:balance_overview' %}#sheikh-bill-section" class="form-grid">
+        <div>
+            <label for="sheikh_branch">Branch</label>
+            <select id="sheikh_branch" name="sheikh_branch">
+                <option value="">All Branches</option>
+                {% for branch in branches %}
+                <option value="{{ branch.id }}" {% if branch.id == sheikh_branch_id %}selected{% endif %}>{{ branch.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="sheikh_from">From Date</label>
+            <input id="sheikh_from" name="sheikh_from" type="date" value="{{ sheikh_from }}" required>
+        </div>
+        <div>
+            <label for="sheikh_to">To Date</label>
+            <input id="sheikh_to" name="sheikh_to" type="date" value="{{ sheikh_to }}" required>
+        </div>
+        <button type="submit" class="primary-button">Show Sheikh Bills</button>
+        <button type="submit" class="ghost-button" formaction="{% url 'user_access:sheikh_bill_pdf' %}" formmethod="get">Download PDF</button>
+    </form>
+
+    <div class="summary-cards">
+        <article class="summary-card">
+            <span>Date Range</span>
+            <strong>{% if sheikh_from and sheikh_to %}{{ sheikh_from }} to {{ sheikh_to }}{% else %}Select a start and end date{% endif %}</strong>
+        </article>
+        <article class="summary-card">
+            <span>Sheikh Bill Entries</span>
+            <strong>{{ sheikh_bill_rows|length }}</strong>
+        </article>
+        <article class="summary-card">
+            <span>Total Sheikh Bill</span>
+            <strong>{{ total_sheikh_bill }}</strong>
+        </article>
+    </div>
+
+    {% if sheikh_from and sheikh_to %}
+    <div class="table-card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Branch</th>
+                    <th>Reference</th>
+                    <th>Sheikh Bill</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in sheikh_bill_rows %}
+                <tr>
+                    <td>{{ row.summary.sheet_date }}</td>
+                    <td>{{ row.summary.branch.name|default:"Unassigned" }}</td>
+                    <td><a href="{{ row.summary.get_absolute_url }}">{{ row.summary.reference_number }}</a></td>
+                    <td>{{ row.amount }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4">No Sheikh bills found in this date range.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="lead">Choose both dates to see the Sheikh bills entered in account summaries.</p>
+    {% endif %}
+</section>
+
 <section class="card" id="accounting-report-section">
     <div class="section-head">
         <div>
