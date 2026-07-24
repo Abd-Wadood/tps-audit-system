@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils.dateparse import parse_date
 
 from stock_register.models import Item as StockRegisterItem
+from stock_register.reports import build_monthly_usage_rows
 from stock_control.sheet_logic import ensure_seed_data
 from accounting_app.account_summary_calculations import SECTION_CONFIG
 from stocks.models import Branch, Item, StockSheet
@@ -18,7 +19,7 @@ from .constants import ACCOUNTING_ROLE, REPORT_ROLE, STOCK_ROLE
 from .forms import OwnerStockItemForm, OwnerStockRegisterItemForm, OwnerUserCreateForm, OwnerUserRoleForm, SignInForm
 from .models import UserWorkspace
 from .permissions import role_flags
-from .pdf import build_accounting_range_pdf, build_sheikh_bill_pdf
+from .pdf import build_accounting_range_pdf, build_monthly_stock_usage_pdf, build_sheikh_bill_pdf
 
 
 def parse_non_negative_decimal(value):
@@ -420,6 +421,9 @@ def owner_balance_view(request):
     sheikh_from_raw = request.GET.get("sheikh_from", "").strip()
     sheikh_to_raw = request.GET.get("sheikh_to", "").strip()
     sheikh_branch_id = request.GET.get("sheikh_branch", "").strip()
+    usage_from_raw = request.GET.get("usage_from", "").strip()
+    usage_to_raw = request.GET.get("usage_to", "").strip()
+    usage_branch_id = request.GET.get("usage_branch", "").strip()
 
     balance_from = parse_date(balance_from_raw) if balance_from_raw else None
     balance_to = parse_date(balance_to_raw) if balance_to_raw else None
@@ -427,6 +431,8 @@ def owner_balance_view(request):
     report_to = parse_date(report_to_raw) if report_to_raw else None
     sheikh_from = parse_date(sheikh_from_raw) if sheikh_from_raw else None
     sheikh_to = parse_date(sheikh_to_raw) if sheikh_to_raw else None
+    usage_from = parse_date(usage_from_raw) if usage_from_raw else None
+    usage_to = parse_date(usage_to_raw) if usage_to_raw else None
 
     balance_summaries = StockSheet.objects.none()
     total_balance = Decimal("0")
@@ -437,6 +443,8 @@ def owner_balance_view(request):
     overall_summary_count = StockSheet.objects.count()
     sheikh_bill_rows = []
     total_sheikh_bill = Decimal("0")
+    monthly_usage_rows = []
+    usage_month_count = 0
 
     if balance_from and balance_to:
         balance_summaries = get_summary_range(
@@ -459,6 +467,13 @@ def owner_balance_view(request):
             get_summary_range(sheikh_branch_id, sheikh_from, sheikh_to)
         )
         total_sheikh_bill = sum((row["amount"] for row in sheikh_bill_rows), Decimal("0"))
+
+    if usage_from and usage_to:
+        monthly_usage_rows, usage_month_count = build_monthly_usage_rows(
+            usage_branch_id,
+            usage_from,
+            usage_to,
+        )
 
     return render(
         request,
@@ -483,8 +498,48 @@ def owner_balance_view(request):
             "sheikh_branch_id": parse_optional_int(sheikh_branch_id),
             "sheikh_bill_rows": sheikh_bill_rows,
             "total_sheikh_bill": total_sheikh_bill,
+            "usage_from": usage_from_raw,
+            "usage_to": usage_to_raw,
+            "usage_branch_id": parse_optional_int(usage_branch_id),
+            "monthly_usage_rows": monthly_usage_rows,
+            "usage_month_count": usage_month_count,
         },
     )
+
+
+def monthly_stock_usage_pdf_view(request):
+    if not request.user.is_authenticated:
+        return redirect("login")
+    if not request.user.is_superuser:
+        return redirect("user_access:workspace_home")
+
+    date_from_raw = request.GET.get("usage_from", "").strip()
+    date_to_raw = request.GET.get("usage_to", "").strip()
+    branch_id = request.GET.get("usage_branch", "").strip()
+    date_from = parse_date(date_from_raw) if date_from_raw else None
+    date_to = parse_date(date_to_raw) if date_to_raw else None
+
+    if not date_from or not date_to or date_from > date_to:
+        messages.info(request, "Choose a valid from date and to date before downloading the stock usage PDF.")
+        return redirect(f"{reverse('user_access:balance_overview')}#stock-usage-section")
+
+    rows, month_count = build_monthly_usage_rows(branch_id, date_from, date_to)
+    branch_label = get_branch_label(branch_id)
+    response = HttpResponse(content_type="application/pdf")
+    filename_branch = branch_label.lower().replace(" ", "-")
+    response["Content-Disposition"] = (
+        f'attachment; filename="monthly-stock-usage-{filename_branch}-{date_from:%Y%m%d}-{date_to:%Y%m%d}.pdf"'
+    )
+    build_monthly_stock_usage_pdf(
+        buffer=response,
+        rows=rows,
+        month_count=month_count,
+        branch_label=branch_label,
+        date_from=date_from,
+        date_to=date_to,
+        generated_by=request.user.get_full_name() or request.user.username,
+    )
+    return response
 
 
 def sheikh_bill_pdf_view(request):

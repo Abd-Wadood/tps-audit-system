@@ -94,6 +94,85 @@
     {% endif %}
 </section>
 
+<section class="card" id="stock-usage-section">
+    <div class="section-head">
+        <div>
+            <p class="eyebrow">Stock Register Usage</p>
+            <h2>Monthly Stock Usage Average</h2>
+            <p class="lead">See how much of each item was issued and its average usage per calendar month.</p>
+        </div>
+    </div>
+    <form method="get" action="{% url 'user_access:balance_overview' %}#stock-usage-section" class="form-grid">
+        <div>
+            <label for="usage_branch">Branch</label>
+            <select id="usage_branch" name="usage_branch">
+                <option value="">All Branches</option>
+                {% for branch in branches %}
+                <option value="{{ branch.id }}" {% if branch.id == usage_branch_id %}selected{% endif %}>{{ branch.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="usage_from">From Date</label>
+            <input id="usage_from" name="usage_from" type="date" value="{{ usage_from }}" required>
+        </div>
+        <div>
+            <label for="usage_to">To Date</label>
+            <input id="usage_to" name="usage_to" type="date" value="{{ usage_to }}" required>
+        </div>
+        <button type="submit" class="primary-button">Calculate Usage Average</button>
+        <button type="submit" class="ghost-button" formaction="{% url 'user_access:monthly_stock_usage_pdf' %}" formmethod="get">Download PDF</button>
+    </form>
+
+    {% if usage_from and usage_to %}
+    <div class="summary-cards">
+        <article class="summary-card">
+            <span>Date Range</span>
+            <strong>{{ usage_from }} to {{ usage_to }}</strong>
+        </article>
+        <article class="summary-card">
+            <span>Calendar Months</span>
+            <strong>{{ usage_month_count }}</strong>
+        </article>
+        <article class="summary-card">
+            <span>Individual Items</span>
+            <strong>{{ monthly_usage_rows|length }}</strong>
+        </article>
+    </div>
+    <div class="table-card">
+        <table>
+            <thead>
+                <tr>
+                    <th>Branch</th>
+                    <th>Item</th>
+                    <th>Unit</th>
+                    <th>Total Used</th>
+                    <th>Average Used / Month</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in monthly_usage_rows %}
+                <tr>
+                    <td>{{ row.item.branch.name }}</td>
+                    <td>{{ row.item.name }}</td>
+                    <td>{{ row.item.unit }}</td>
+                    <td>{{ row.total_used }}</td>
+                    <td>{{ row.monthly_average }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5">No stock register items found for this selection.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="lead">Average is the total Stock Out quantity divided by {{ usage_month_count }} calendar month{{ usage_month_count|pluralize }} in the selected range. Months with no usage are included.</p>
+    {% else %}
+    <p class="lead">Choose both dates to calculate each stock register item's monthly usage average.</p>
+    {% endif %}
+</section>
+
 <section class="card" id="sheikh-bill-section">
     <div class="section-head">
         <div>

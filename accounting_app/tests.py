@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from django.contrib.auth.models import Group, User
@@ -7,6 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from stock_control.sheet_logic import resolve_sheet
+from stock_register.models import Item as RegisterItem, StockTransaction
 from user_access.constants import ACCOUNTING_ROLE
 from user_access.models import UserWorkspace
 from stocks.models import Branch, DailyStock, StockEntry, StockSheet
@@ -565,6 +566,81 @@ class AccountingSummaryFlowTests(TestCase):
         response = self.client.get(reverse("user_access:accounting_range_pdf"))
 
         self.assertRedirects(response, f"{reverse('user_access:balance_overview')}#accounting-report-section")
+
+    def test_owner_can_view_individual_monthly_stock_usage_average(self):
+        flour = RegisterItem.objects.create(branch=self.branch, name="Flour", unit="kg", current_stock=100)
+        oil = RegisterItem.objects.create(branch=self.branch, name="Oil", unit="litre", current_stock=50)
+        other_branch = Branch.objects.create(name="Other Usage Branch")
+        other_flour = RegisterItem.objects.create(branch=other_branch, name="Flour", unit="kg", current_stock=100)
+
+        january = StockTransaction.objects.create(
+            item=flour, transaction_type=StockTransaction.OUT, quantity=20, balance_after=80, created_by=self.user
+        )
+        february = StockTransaction.objects.create(
+            item=flour, transaction_type=StockTransaction.OUT, quantity=40, balance_after=40, created_by=self.user
+        )
+        outside_range = StockTransaction.objects.create(
+            item=flour, transaction_type=StockTransaction.OUT, quantity=90, balance_after=0, created_by=self.user
+        )
+        other_movement = StockTransaction.objects.create(
+            item=other_flour, transaction_type=StockTransaction.OUT, quantity=70, balance_after=30, created_by=self.user
+        )
+        StockTransaction.objects.filter(pk=january.pk).update(
+            created_at=timezone.make_aware(datetime(2026, 1, 10, 12, 0))
+        )
+        StockTransaction.objects.filter(pk=february.pk).update(
+            created_at=timezone.make_aware(datetime(2026, 2, 12, 12, 0))
+        )
+        StockTransaction.objects.filter(pk=outside_range.pk).update(
+            created_at=timezone.make_aware(datetime(2026, 3, 1, 12, 0))
+        )
+        StockTransaction.objects.filter(pk=other_movement.pk).update(
+            created_at=timezone.make_aware(datetime(2026, 1, 15, 12, 0))
+        )
+
+        response = self.client.get(
+            reverse("user_access:balance_overview"),
+            {
+                "usage_branch": str(self.branch.pk),
+                "usage_from": "2026-01-01",
+                "usage_to": "2026-02-28",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        rows = response.context["monthly_usage_rows"]
+        self.assertEqual(response.context["usage_month_count"], 2)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["item"], flour)
+        self.assertEqual(rows[0]["total_used"], Decimal("60.00"))
+        self.assertEqual(rows[0]["monthly_average"], Decimal("30.00"))
+        self.assertEqual(rows[1]["item"], oil)
+        self.assertEqual(rows[1]["monthly_average"], Decimal("0.00"))
+
+    def test_owner_can_download_monthly_stock_usage_pdf(self):
+        RegisterItem.objects.create(branch=self.branch, name="Flour", unit="kg")
+
+        response = self.client.get(
+            reverse("user_access:monthly_stock_usage_pdf"),
+            {
+                "usage_branch": str(self.branch.pk),
+                "usage_from": "2026-01-01",
+                "usage_to": "2026-02-28",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("monthly-stock-usage-township-20260101-20260228.pdf", response["Content-Disposition"])
+        self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_monthly_stock_usage_pdf_requires_valid_dates(self):
+        response = self.client.get(
+            reverse("user_access:monthly_stock_usage_pdf"),
+            {"usage_from": "2026-02-01", "usage_to": "2026-01-01"},
+        )
+
+        self.assertRedirects(response, f"{reverse('user_access:balance_overview')}#stock-usage-section")
 
     def test_owner_can_delete_non_superuser_from_user_management(self):
         deletable_user = User.objects.create_user(username="delete_me", password="testpass123")
